@@ -1,0 +1,24 @@
+[project]
+name = "monogauge"
+version = "0.1.0"
+requires-python = ">=3.14"
+dependencies = []
+
+[tool.uv.workspace]
+members = [
+    "packages/contracts",
+    "packages/llm_gateway",
+    "packages/voice",
+    "packages/skill_graph",
+    "packages/engine",
+    "packages/evaluator",
+    "packages/session_store",
+    "apps/api",
+]
+
+[dependency-groups]
+dev = [
+    "httpx2>=2.13.1",
+    "pytest>=9.1.1",
+    "ruff>=0.16.9",
+]

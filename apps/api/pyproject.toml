@@ -1,0 +1,35 @@
+[project]
+name = "api"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Mahakaal", email = "59462639+O-ozwal@users.noreply.github.com" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "contracts",
+    "engine",
+    "evaluator",
+    "fastapi[standard]>=0.141.1",
+    "llm-gateway",
+    "session-store",
+    "skill-graph",
+    "voice",
+]
+
+[project.scripts]
+api = "api:main"
+
+[build-system]
+requires = ["uv_build>=0.12.18,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.uv.sources]
+contracts = { workspace = true }
+engine = { workspace = true }
+evaluator = { workspace = true }
+llm-gateway = { workspace = true }
+session-store = { workspace = true }
+skill-graph = { workspace = true }
+voice = { workspace = true }
