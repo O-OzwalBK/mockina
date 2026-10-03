@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class WordTiming(BaseModel):
@@ -18,6 +18,14 @@ class WordTiming(BaseModel):
         description="Seconds from the start of the answer at which the word ends.",
         examples=[0.4, 1.6],
     )
+
+    @model_validator(mode="after")
+    def validate_start_less_than_end(self) -> WordTiming:
+        if self.end < self.start:
+            raise ValueError(
+                f"end timestamp ({self.end}s) must be strictly greater than start timestamp ({self.start}s)"
+            )
+        return self
 
 
 class Answer(BaseModel):

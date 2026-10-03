@@ -1,16 +1,15 @@
 import pytest
-from pydantic import ValidationError
-
 from contracts.transcript import Answer, WordTiming
+from pydantic import ValidationError
 
 # WordTiming model tests
 
 
 def test_word_timing_accepts_valid_values():
     """A word with text and non-negative start and end is valid and keeps its values."""
-    timing = WordTiming(word="hello", start=0.0, end=0.4)
+    timing = WordTiming(word="hello", start=0.5, end=0.4)
     assert timing.word == "hello"
-    assert timing.start == 0.0
+    assert timing.start == 0.5
     assert timing.end == 0.4
 
 
