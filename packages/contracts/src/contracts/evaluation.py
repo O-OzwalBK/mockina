@@ -9,14 +9,14 @@ class MetricScore(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
     score: int = Field(
+        description="Whole-number score from 0 (very poor) to 10 (excellent).",
         ge=0,
         le=10,
-        description="Whole-number score from 0 (very poor) to 10 (excellent).",
         examples=[7],
     )
     feedback: str = Field(
-        min_length=1,
         description="One or two sentences explaining why this score was given.",
+        min_length=1,
         examples=["Correct explanation, but it skips how keys affect reconciliation."],
     )
 
@@ -43,7 +43,7 @@ class Evaluation(BaseModel):
         description="How well the answer addresses the question and the role."
     )
     summary: str = Field(
-        min_length=1,
         description="Overall feedback on the answer, with the most important improvement.",
+        min_length=1,
         examples=["Strong fundamentals; next time, mention how keys affect list updates."],
     )
