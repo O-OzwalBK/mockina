@@ -1,0 +1,50 @@
+{
+  "additionalProperties": false,
+  "description": "What a client sends to start preparing for a job.",
+  "properties": {
+    "job_description": {
+      "description": "Full text of the job description, pasted by the user or taken from a preset.",
+      "examples": [
+        "We are looking for a junior developer with React experience."
+      ],
+      "maxLength": 20000,
+      "minLength": 1,
+      "title": "Job Description",
+      "type": "string"
+    },
+    "job_title": {
+      "description": "Short name for the target job, shown when listing preparations.",
+      "examples": [
+        "Junior React Developer"
+      ],
+      "maxLength": 120,
+      "minLength": 1,
+      "title": "Job Title",
+      "type": "string"
+    },
+    "resume": {
+      "anyOf": [
+        {
+          "maxLength": 20000,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional resume text. Omit it or send null when there is none.",
+      "examples": [
+        "Built a task tracker with React and TypeScript."
+      ],
+      "title": "Resume"
+    }
+  },
+  "required": [
+    "job_title",
+    "job_description"
+  ],
+  "title": "PreparationCreate",
+  "type": "object"
+}

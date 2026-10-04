@@ -1,0 +1,386 @@
+{
+  "$defs": {
+    "Answer": {
+      "additionalProperties": false,
+      "description": "What the user said in response to one interview question.",
+      "properties": {
+        "duration": {
+          "description": "Total length of the answer in seconds.",
+          "examples": [
+            12.5
+          ],
+          "maximum": 1800,
+          "minimum": 0,
+          "title": "Duration",
+          "type": "number"
+        },
+        "transcript": {
+          "description": "Full text of the answer. Empty if the user stayed silent.",
+          "examples": [
+            "I would use a hash map to count occurrences."
+          ],
+          "maxLength": 20000,
+          "title": "Transcript",
+          "type": "string"
+        },
+        "words": {
+          "default": [],
+          "description": "Per-word timings in the order the words were spoken, used to compute pace and pauses. Empty when the speech-to-text source provides none.",
+          "items": {
+            "$ref": "#/$defs/WordTiming"
+          },
+          "maxItems": 5000,
+          "title": "Words",
+          "type": "array"
+        }
+      },
+      "required": [
+        "transcript",
+        "duration"
+      ],
+      "title": "Answer",
+      "type": "object"
+    },
+    "Evaluation": {
+      "description": "The grade for one answer, scored on four metrics.",
+      "properties": {
+        "clarity": {
+          "$ref": "#/$defs/MetricScore",
+          "description": "How clearly and logically the answer is structured."
+        },
+        "correctness": {
+          "$ref": "#/$defs/MetricScore",
+          "description": "Whether the facts and reasoning in the answer are right."
+        },
+        "depth": {
+          "$ref": "#/$defs/MetricScore",
+          "description": "How far the answer goes beyond surface-level knowledge."
+        },
+        "question_id": {
+          "description": "The id of the question this evaluation grades.",
+          "examples": [
+            "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+          ],
+          "format": "uuid",
+          "title": "Question Id",
+          "type": "string"
+        },
+        "relevance": {
+          "$ref": "#/$defs/MetricScore",
+          "description": "How well the answer addresses the question and the role."
+        },
+        "summary": {
+          "description": "Overall feedback on the answer, with the most important improvement.",
+          "examples": [
+            "Strong fundamentals; next time, mention how keys affect list updates."
+          ],
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Summary",
+          "type": "string"
+        }
+      },
+      "required": [
+        "question_id",
+        "correctness",
+        "depth",
+        "clarity",
+        "relevance",
+        "summary"
+      ],
+      "title": "Evaluation",
+      "type": "object"
+    },
+    "MetricScore": {
+      "description": "A score for one grading metric, with the reasoning behind it.",
+      "properties": {
+        "feedback": {
+          "description": "One or two sentences explaining why this score was given.",
+          "examples": [
+            "Correct explanation, but it skips how keys affect reconciliation."
+          ],
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Feedback",
+          "type": "string"
+        },
+        "score": {
+          "description": "Whole-number score from 0 (very poor) to 10 (excellent).",
+          "examples": [
+            7
+          ],
+          "maximum": 10,
+          "minimum": 0,
+          "title": "Score",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "score",
+        "feedback"
+      ],
+      "title": "MetricScore",
+      "type": "object"
+    },
+    "Question": {
+      "additionalProperties": false,
+      "description": "One question the interviewer asks during a session.",
+      "properties": {
+        "difficulty": {
+          "description": "Difficulty from 1 (beginner) to 5 (expert).",
+          "examples": [
+            2
+          ],
+          "maximum": 5,
+          "minimum": 1,
+          "title": "Difficulty",
+          "type": "integer"
+        },
+        "id": {
+          "description": "Globally unique identifier of the question, generated when it is created.",
+          "examples": [
+            "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+          ],
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "skill_id": {
+          "description": "Stable identifier of the skill this question tests. The same skill keeps the same id across all preparations and sessions.",
+          "examples": [
+            "d9b2d6f0-3c1a-4e57-9f0e-8a1b2c3d4e5f"
+          ],
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Skill Id",
+          "type": "string"
+        },
+        "text": {
+          "description": "The question exactly as it is spoken to the candidate.",
+          "examples": [
+            "How does React decide when to re-render a component?"
+          ],
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text",
+        "skill_id",
+        "difficulty"
+      ],
+      "title": "Question",
+      "type": "object"
+    },
+    "SessionStatus": {
+      "description": "Where an interview session is in its life cycle.\n\n- in_progress: the interview is under way and has no end time.\n- completed: the interview ended. Grading may still be pending or may have failed.\n- abandoned: the user left before finishing.",
+      "enum": [
+        "in_progress",
+        "completed",
+        "abandoned"
+      ],
+      "title": "SessionStatus",
+      "type": "string"
+    },
+    "Turn": {
+      "additionalProperties": false,
+      "description": "One question-and-answer exchange in an interview session.\n\nA turn moves through the states described by TurnStatus, and the fields that\nmust be present depend on the state. A turn is immutable: to move it to its\nnext state, call `updated()`, which re-validates the result. Do not use\n`model_copy(update=...)`, because it skips validation and can produce an\ninvalid turn.",
+      "properties": {
+        "answer": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Answer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "What the user said. Present once the user has answered."
+        },
+        "evaluation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Evaluation"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The grade for the answer. Present only when the status is graded."
+        },
+        "grading_error": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Short, cleaned-up reason that grading failed, not the raw provider error. Present only when the status is grading_failed.",
+          "examples": [
+            "The provider timed out."
+          ],
+          "title": "Grading Error"
+        },
+        "question": {
+          "$ref": "#/$defs/Question",
+          "description": "The question the interviewer asked."
+        },
+        "status": {
+          "$ref": "#/$defs/TurnStatus",
+          "default": "awaiting_answer",
+          "description": "Where the turn is in its life cycle.",
+          "examples": [
+            "awaiting_answer"
+          ]
+        }
+      },
+      "required": [
+        "question"
+      ],
+      "title": "Turn",
+      "type": "object"
+    },
+    "TurnStatus": {
+      "description": "Where a turn is in its life cycle.\n\n- awaiting_answer: the question was asked and the user has not answered yet.\n- awaiting_grade: the user answered and the answer is waiting to be graded.\n- graded: the answer was graded and the evaluation is attached.\n- grading_failed: grading did not succeed; grading_error says why, and it can be retried.",
+      "enum": [
+        "awaiting_answer",
+        "awaiting_grade",
+        "graded",
+        "grading_failed"
+      ],
+      "title": "TurnStatus",
+      "type": "string"
+    },
+    "WordTiming": {
+      "additionalProperties": false,
+      "description": "One spoken word and when it was said within an answer.",
+      "properties": {
+        "end": {
+          "description": "Seconds from the start of the answer at which the word ends. Never earlier than start.",
+          "examples": [
+            0.4,
+            1.6
+          ],
+          "minimum": 0,
+          "title": "End",
+          "type": "number"
+        },
+        "start": {
+          "description": "Seconds from the start of the answer at which the word begins.",
+          "examples": [
+            0.0,
+            1.25
+          ],
+          "minimum": 0,
+          "title": "Start",
+          "type": "number"
+        },
+        "word": {
+          "description": "The spoken word as transcribed by the speech-to-text model.",
+          "examples": [
+            "hello"
+          ],
+          "maxLength": 100,
+          "title": "Word",
+          "type": "string"
+        }
+      },
+      "required": [
+        "word",
+        "start",
+        "end"
+      ],
+      "title": "WordTiming",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "One practice attempt at an interview: an ordered list of turns.\n\nMany sessions can belong to the same preparation. The session is immutable:\nto add a turn or change its status, call `updated()`, for example\n`session.updated(turns=session.turns + (new_turn,))`.",
+  "properties": {
+    "ended_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "When the session ended. Present only when the status is completed or abandoned.",
+      "examples": [
+        "2026-10-04T09:30:00Z"
+      ],
+      "title": "Ended At"
+    },
+    "id": {
+      "description": "Globally unique identifier of the session, generated when it is created.",
+      "examples": [
+        "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+      ],
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+    },
+    "preparation_id": {
+      "description": "The id of the preparation (job description and resume) this session practices.",
+      "examples": [
+        "9c1d2e3f-4a5b-4c6d-8e7f-0a1b2c3d4e5f"
+      ],
+      "format": "uuid",
+      "title": "Preparation Id",
+      "type": "string"
+    },
+    "started_at": {
+      "description": "When the session started, as a timezone-aware UTC time.",
+      "examples": [
+        "2026-10-04T09:00:00Z"
+      ],
+      "format": "date-time",
+      "title": "Started At",
+      "type": "string"
+    },
+    "status": {
+      "$ref": "#/$defs/SessionStatus",
+      "default": "in_progress",
+      "description": "Where the session is in its life cycle.",
+      "examples": [
+        "in_progress"
+      ]
+    },
+    "turns": {
+      "default": [],
+      "description": "The turns of the interview, in the order the questions were asked.",
+      "items": {
+        "$ref": "#/$defs/Turn"
+      },
+      "maxItems": 100,
+      "title": "Turns",
+      "type": "array"
+    },
+    "updated_at": {
+      "description": "When the session last changed, used to resume or expire sessions.",
+      "examples": [
+        "2026-10-04T09:12:00Z"
+      ],
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "preparation_id"
+  ],
+  "title": "InterviewSession",
+  "type": "object"
+}

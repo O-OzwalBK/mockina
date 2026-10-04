@@ -1,0 +1,31 @@
+{
+  "description": "A score for one grading metric, with the reasoning behind it.",
+  "properties": {
+    "feedback": {
+      "description": "One or two sentences explaining why this score was given.",
+      "examples": [
+        "Correct explanation, but it skips how keys affect reconciliation."
+      ],
+      "maxLength": 1000,
+      "minLength": 1,
+      "title": "Feedback",
+      "type": "string"
+    },
+    "score": {
+      "description": "Whole-number score from 0 (very poor) to 10 (excellent).",
+      "examples": [
+        7
+      ],
+      "maximum": 10,
+      "minimum": 0,
+      "title": "Score",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "score",
+    "feedback"
+  ],
+  "title": "MetricScore",
+  "type": "object"
+}

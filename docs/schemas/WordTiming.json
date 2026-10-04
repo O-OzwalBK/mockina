@@ -1,0 +1,42 @@
+{
+  "additionalProperties": false,
+  "description": "One spoken word and when it was said within an answer.",
+  "properties": {
+    "end": {
+      "description": "Seconds from the start of the answer at which the word ends. Never earlier than start.",
+      "examples": [
+        0.4,
+        1.6
+      ],
+      "minimum": 0,
+      "title": "End",
+      "type": "number"
+    },
+    "start": {
+      "description": "Seconds from the start of the answer at which the word begins.",
+      "examples": [
+        0.0,
+        1.25
+      ],
+      "minimum": 0,
+      "title": "Start",
+      "type": "number"
+    },
+    "word": {
+      "description": "The spoken word as transcribed by the speech-to-text model.",
+      "examples": [
+        "hello"
+      ],
+      "maxLength": 100,
+      "title": "Word",
+      "type": "string"
+    }
+  },
+  "required": [
+    "word",
+    "start",
+    "end"
+  ],
+  "title": "WordTiming",
+  "type": "object"
+}

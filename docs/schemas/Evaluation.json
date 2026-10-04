@@ -1,0 +1,83 @@
+{
+  "$defs": {
+    "MetricScore": {
+      "description": "A score for one grading metric, with the reasoning behind it.",
+      "properties": {
+        "feedback": {
+          "description": "One or two sentences explaining why this score was given.",
+          "examples": [
+            "Correct explanation, but it skips how keys affect reconciliation."
+          ],
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Feedback",
+          "type": "string"
+        },
+        "score": {
+          "description": "Whole-number score from 0 (very poor) to 10 (excellent).",
+          "examples": [
+            7
+          ],
+          "maximum": 10,
+          "minimum": 0,
+          "title": "Score",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "score",
+        "feedback"
+      ],
+      "title": "MetricScore",
+      "type": "object"
+    }
+  },
+  "description": "The grade for one answer, scored on four metrics.",
+  "properties": {
+    "clarity": {
+      "$ref": "#/$defs/MetricScore",
+      "description": "How clearly and logically the answer is structured."
+    },
+    "correctness": {
+      "$ref": "#/$defs/MetricScore",
+      "description": "Whether the facts and reasoning in the answer are right."
+    },
+    "depth": {
+      "$ref": "#/$defs/MetricScore",
+      "description": "How far the answer goes beyond surface-level knowledge."
+    },
+    "question_id": {
+      "description": "The id of the question this evaluation grades.",
+      "examples": [
+        "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+      ],
+      "format": "uuid",
+      "title": "Question Id",
+      "type": "string"
+    },
+    "relevance": {
+      "$ref": "#/$defs/MetricScore",
+      "description": "How well the answer addresses the question and the role."
+    },
+    "summary": {
+      "description": "Overall feedback on the answer, with the most important improvement.",
+      "examples": [
+        "Strong fundamentals; next time, mention how keys affect list updates."
+      ],
+      "maxLength": 2000,
+      "minLength": 1,
+      "title": "Summary",
+      "type": "string"
+    }
+  },
+  "required": [
+    "question_id",
+    "correctness",
+    "depth",
+    "clarity",
+    "relevance",
+    "summary"
+  ],
+  "title": "Evaluation",
+  "type": "object"
+}

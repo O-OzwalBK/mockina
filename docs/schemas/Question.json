@@ -1,0 +1,52 @@
+{
+  "additionalProperties": false,
+  "description": "One question the interviewer asks during a session.",
+  "properties": {
+    "difficulty": {
+      "description": "Difficulty from 1 (beginner) to 5 (expert).",
+      "examples": [
+        2
+      ],
+      "maximum": 5,
+      "minimum": 1,
+      "title": "Difficulty",
+      "type": "integer"
+    },
+    "id": {
+      "description": "Globally unique identifier of the question, generated when it is created.",
+      "examples": [
+        "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+      ],
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+    },
+    "skill_id": {
+      "description": "Stable identifier of the skill this question tests. The same skill keeps the same id across all preparations and sessions.",
+      "examples": [
+        "d9b2d6f0-3c1a-4e57-9f0e-8a1b2c3d4e5f"
+      ],
+      "maxLength": 100,
+      "minLength": 1,
+      "title": "Skill Id",
+      "type": "string"
+    },
+    "text": {
+      "description": "The question exactly as it is spoken to the candidate.",
+      "examples": [
+        "How does React decide when to re-render a component?"
+      ],
+      "maxLength": 1000,
+      "minLength": 1,
+      "title": "Text",
+      "type": "string"
+    }
+  },
+  "required": [
+    "text",
+    "skill_id",
+    "difficulty"
+  ],
+  "title": "Question",
+  "type": "object"
+}
