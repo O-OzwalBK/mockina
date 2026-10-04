@@ -1,12 +1,18 @@
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import ConfigDict, Field
+
+from contracts.common import ImmutableModel
+
+MAX_FEEDBACK_LENGTH = 1_000
+MAX_SUMMARY_LENGTH = 2_000
 
 
-class MetricScore(BaseModel):
+class MetricScore(ImmutableModel):
     """A score for one grading metric, with the reasoning behind it."""
 
-    model_config = ConfigDict(str_strip_whitespace=True)
+    # An LLM fills this in, so extra keys are ignored instead of failing the grade.
+    model_config = ConfigDict(extra="ignore")
 
     score: int = Field(
         description="Whole-number score from 0 (very poor) to 10 (excellent).",
@@ -17,14 +23,16 @@ class MetricScore(BaseModel):
     feedback: str = Field(
         description="One or two sentences explaining why this score was given.",
         min_length=1,
+        max_length=MAX_FEEDBACK_LENGTH,
         examples=["Correct explanation, but it skips how keys affect reconciliation."],
     )
 
 
-class Evaluation(BaseModel):
+class Evaluation(ImmutableModel):
     """The grade for one answer, scored on four metrics."""
 
-    model_config = ConfigDict(str_strip_whitespace=True)
+    # An LLM fills this in, so extra keys are ignored instead of failing the grade.
+    model_config = ConfigDict(extra="ignore")
 
     question_id: UUID = Field(
         description="The id of the question this evaluation grades.",
@@ -45,5 +53,6 @@ class Evaluation(BaseModel):
     summary: str = Field(
         description="Overall feedback on the answer, with the most important improvement.",
         min_length=1,
+        max_length=MAX_SUMMARY_LENGTH,
         examples=["Strong fundamentals; next time, mention how keys affect list updates."],
     )

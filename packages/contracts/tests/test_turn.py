@@ -156,6 +156,11 @@ def test_turn_rejects_grading_error_over_maximum_length():
 
 # --- Immutability and updated() ---
 
+def test_turn_nested_models_cannot_be_changed():
+    """The question inside a turn is immutable too, so a validated turn cannot be altered from outside."""
+    turn = new_turn()
+    with pytest.raises(ValidationError):
+        turn.question.text = "changed"
 
 def test_turn_is_immutable():
     """Fields cannot be assigned after creation, so a turn cannot skip validation."""

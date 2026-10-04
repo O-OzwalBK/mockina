@@ -7,6 +7,7 @@ from pydantic import Field, model_validator
 from contracts.common import ImmutableModel, UtcDatetime, utc_now
 from contracts.turn import Turn, TurnStatus
 
+MAX_TURNS_PER_SESSION = 100
 
 class SessionStatus(StrEnum):
     """Where an interview session is in its life cycle.
@@ -30,8 +31,8 @@ class InterviewSession(ImmutableModel):
     """
 
     id: UUID = Field(
-        default_factory=uuid4,
         description="Globally unique identifier of the session, generated when it is created.",
+        default_factory=uuid4,
         examples=["3fa85f64-5717-4562-b3fc-2c963f66afa6"],
     )
     preparation_id: UUID = Field(
@@ -39,28 +40,29 @@ class InterviewSession(ImmutableModel):
         examples=["9c1d2e3f-4a5b-4c6d-8e7f-0a1b2c3d4e5f"],
     )
     status: SessionStatus = Field(
-        default=SessionStatus.IN_PROGRESS,
         description="Where the session is in its life cycle.",
+        default=SessionStatus.IN_PROGRESS,
         examples=["in_progress"],
     )
     started_at: UtcDatetime = Field(
-        default_factory=utc_now,
         description="When the session started, as a timezone-aware UTC time.",
+        default_factory=utc_now,
         examples=["2026-10-04T09:00:00Z"],
     )
     ended_at: UtcDatetime | None = Field(
-        default=None,
         description="When the session ended. Present only when the status is completed or abandoned.",
+        default=None,
         examples=["2026-10-04T09:30:00Z"],
     )
     updated_at: UtcDatetime = Field(
-        default_factory=utc_now,
         description="When the session last changed, used to resume or expire sessions.",
+        default_factory=utc_now,
         examples=["2026-10-04T09:12:00Z"],
     )
     turns: tuple[Turn, ...] = Field(
-        default=(),
         description="The turns of the interview, in the order the questions were asked.",
+        max_length=MAX_TURNS_PER_SESSION,
+        default=(),
     )
 
     @model_validator(mode="after")

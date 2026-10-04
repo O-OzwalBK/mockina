@@ -3,7 +3,7 @@ from typing import Any
 from uuid import uuid4
 
 import pytest
-from contracts.session import InterviewSession, SessionStatus
+from contracts.session import MAX_TURNS_PER_SESSION, InterviewSession, SessionStatus
 from contracts.turn import Turn, TurnStatus
 from pydantic import ValidationError
 
@@ -163,7 +163,21 @@ def test_session_rejects_update_before_end():
 
 # --- Turns ---
 
+def test_session_accepts_maximum_number_of_turns():
+    """A session with exactly the maximum number of turns is valid."""
+    data = session_data()
+    data["turns"] = [make_turn_data() for _ in range(MAX_TURNS_PER_SESSION)]
+    InterviewSession.model_validate(data)
 
+
+def test_session_rejects_too_many_turns():
+    """A session with one turn more than the maximum is invalid."""
+    data = session_data()
+    data["turns"] = [make_turn_data() for _ in range(MAX_TURNS_PER_SESSION + 1)]
+    with pytest.raises(ValidationError):
+        InterviewSession.model_validate(data)
+
+        
 def test_session_rejects_duplicate_questions():
     """The same question cannot appear in two turns."""
     data = session_data()

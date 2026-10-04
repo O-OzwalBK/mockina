@@ -1,6 +1,27 @@
+from typing import Any
+
 import pytest
-from contracts.transcript import Answer, WordTiming
+from contracts.transcript import (
+    MAX_ANSWER_DURATION_SECONDS,
+    MAX_TRANSCRIPT_LENGTH,
+    MAX_WORD_LENGTH,
+    MAX_WORDS_PER_ANSWER,
+    Answer,
+    WordTiming,
+)
 from pydantic import ValidationError
+
+
+def word(start: float, end: float, text: str = "hi") -> dict[str, Any]:
+    """A word timing as a dictionary."""
+    return {"word": text, "start": start, "end": end}
+
+
+def answer_data(**overrides: Any) -> dict[str, Any]:
+    """A fresh, valid answer as a dictionary, with any given fields replaced."""
+    data: dict[str, Any] = {"transcript": "hello there", "duration": 1.0}
+    data.update(overrides)
+    return data
 
 # WordTiming model tests
 
@@ -38,34 +59,49 @@ def test_word_timing_requires_word():
         WordTiming(start=0.0, end=0.4)  # type: ignore[call-arg]
 
 
+@pytest.mark.parametrize("field", ["start", "end"])
+@pytest.mark.parametrize("bad", [float("inf"), float("nan")])
+def test_word_timing_rejects_non_finite_times(field, bad):
+    """Infinite and not-a-number times are invalid."""
+    data = word(0.0, 0.4)
+    data[field] = bad
+    with pytest.raises(ValidationError):
+        WordTiming.model_validate(data)
+
+
+def test_word_timing_accepts_maximum_word_length():
+    """A word exactly at the length limit is valid."""
+    WordTiming.model_validate(word(0.0, 0.4, "a" * MAX_WORD_LENGTH))
+
+
+def test_word_timing_rejects_overlong_word():
+    """A word one character over the length limit is invalid."""
+    with pytest.raises(ValidationError):
+        WordTiming.model_validate(word(0.0, 0.4, "a" * (MAX_WORD_LENGTH + 1)))
+
+
+def test_word_timing_is_immutable():
+    """A word timing cannot be changed after creation."""
+    timing = WordTiming.model_validate(word(0.0, 0.4))
+    with pytest.raises(ValidationError):
+        timing.word = "changed"
+        
 # Answer model tests
 
 
 def test_answer_accepts_valid_values():
     """An answer with a transcript, word timings, and a duration is valid."""
-    answer = Answer(
-        transcript="hello there",
-        words=[
-            WordTiming(word="hello", start=0.0, end=0.4),
-            WordTiming(word="there", start=0.5, end=0.9),
-        ],
-        duration=1.2,
+    answer = Answer.model_validate(
+        answer_data(words=[word(0.0, 0.4, "hello"), word(0.5, 0.9, "there")], duration=1.2)
     )
     assert len(answer.words) == 2
     assert answer.words[1].word == "there"
 
 
-def test_answer_words_default_to_empty_list():
+def test_answer_words_default_to_empty_tuple():
     """Word timings are optional, so an answer from a speech-to-text source without them is valid."""
     answer = Answer(transcript="hi", duration=1.0)
-    assert answer.words == []
-
-
-def test_answer_default_lists_are_not_shared():
-    """Each answer gets its own words list, so editing one never changes another."""
-    first = Answer(transcript="a", duration=1.0)
-    second = Answer(transcript="b", duration=1.0)
-    assert first.words is not second.words
+    assert answer.words == ()
 
 
 def test_answer_allows_empty_transcript():
@@ -96,3 +132,67 @@ def test_answer_rejects_bad_timing_inside_words():
         )
     # The error should point at exactly which field of which word failed.
     assert exc_info.value.errors()[0]["loc"] == ("words", 0, "start")
+
+
+def test_answer_accepts_maximum_transcript_length():
+    """A transcript exactly at the length limit is valid."""
+    Answer.model_validate(answer_data(transcript="a" * MAX_TRANSCRIPT_LENGTH))
+
+
+def test_answer_rejects_overlong_transcript():
+    """A transcript one character over the length limit is invalid."""
+    with pytest.raises(ValidationError):
+        Answer.model_validate(answer_data(transcript="a" * (MAX_TRANSCRIPT_LENGTH + 1)))
+
+
+def test_answer_accepts_maximum_word_count():
+    """An answer with exactly the maximum number of words is valid."""
+    Answer.model_validate(answer_data(words=[word(0.0, 0.1)] * MAX_WORDS_PER_ANSWER))
+
+
+def test_answer_rejects_too_many_words():
+    """An answer with one word more than the maximum is invalid."""
+    with pytest.raises(ValidationError):
+        Answer.model_validate(answer_data(words=[word(0.0, 0.1)] * (MAX_WORDS_PER_ANSWER + 1)))
+
+
+def test_answer_accepts_maximum_duration():
+    """A duration exactly at the limit is valid."""
+    Answer.model_validate(answer_data(duration=MAX_ANSWER_DURATION_SECONDS))
+
+
+def test_answer_rejects_duration_over_maximum():
+    """A duration over the limit is invalid."""
+    with pytest.raises(ValidationError):
+        Answer.model_validate(answer_data(duration=MAX_ANSWER_DURATION_SECONDS + 1))
+
+
+@pytest.mark.parametrize("bad", [float("inf"), float("nan")])
+def test_answer_rejects_non_finite_duration(bad):
+    """An infinite or not-a-number duration is invalid."""
+    with pytest.raises(ValidationError):
+        Answer.model_validate(answer_data(duration=bad))
+
+
+def test_answer_accepts_overlapping_words_in_order():
+    """Words may overlap slightly, as speech-to-text timings often do; only the order of their start times matters."""
+    Answer.model_validate(answer_data(words=[word(0.0, 0.5, "hello"), word(0.4, 0.9, "there")]))
+
+
+def test_answer_rejects_words_out_of_order():
+    """Words must be listed in the order they were spoken."""
+    with pytest.raises(ValidationError):
+        Answer.model_validate(answer_data(words=[word(1.0, 1.4), word(0.0, 0.4)]))
+
+
+def test_answer_words_are_a_tuple():
+    """Words are stored as a tuple, so they cannot be appended to in place."""
+    answer = Answer.model_validate(answer_data(words=[word(0.0, 0.4)]))
+    assert isinstance(answer.words, tuple)
+
+
+def test_answer_is_immutable():
+    """An answer cannot be changed after creation."""
+    answer = Answer.model_validate(answer_data())
+    with pytest.raises(ValidationError):
+        answer.transcript = "changed"

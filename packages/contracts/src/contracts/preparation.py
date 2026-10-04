@@ -1,8 +1,8 @@
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
 
-from contracts.common import UtcDatetime, utc_now
+from contracts.common import ImmutableModel, UtcDatetime, utc_now
 
 MAX_JOB_TITLE_LENGTH = 120
 MAX_JOB_DESCRIPTION_LENGTH = 20_000
@@ -11,10 +11,8 @@ MAX_RESUME_LENGTH = 20_000
 
 # Client request shape
 
-class PreparationCreate(BaseModel):
+class PreparationCreate(ImmutableModel):
     """What a client sends to start preparing for a job."""
-
-    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
 
     job_title: str = Field(
         description="Short name for the target job, shown when listing preparations.",

@@ -1,9 +1,14 @@
 from typing import Any
 
 import pytest
-from contracts.interviewer import Question
+from contracts.interviewer import (
+    MAX_QUESTION_TEXT_LENGTH,
+    MAX_SKILL_ID_LENGTH,
+    Question,
+)
 from pydantic import ValidationError
 
+LENGTH_LIMITS = {"text": MAX_QUESTION_TEXT_LENGTH, "skill_id": MAX_SKILL_ID_LENGTH}
 
 def valid_question_data() -> dict[str, Any]:
     """A fresh, valid question as a dictionary, for tests to modify."""
@@ -86,3 +91,35 @@ def test_question_strips_surrounding_whitespace():
     data = valid_question_data()
     data["text"] = "  What is a closure?  "
     assert Question.model_validate(data).text == "What is a closure?"
+
+
+@pytest.mark.parametrize("field", LENGTH_LIMITS)
+def test_question_accepts_maximum_length(field):
+    """Text exactly at the length limit is valid."""
+    data = valid_question_data()
+    data[field] = "a" * LENGTH_LIMITS[field]
+    Question.model_validate(data)
+
+
+@pytest.mark.parametrize("field", LENGTH_LIMITS)
+def test_question_rejects_over_maximum_length(field):
+    """Text one character over the length limit is invalid."""
+    data = valid_question_data()
+    data[field] = "a" * (LENGTH_LIMITS[field] + 1)
+    with pytest.raises(ValidationError):
+        Question.model_validate(data)
+
+
+def test_question_is_immutable():
+    """A question cannot be changed after creation."""
+    question = Question.model_validate(valid_question_data())
+    with pytest.raises(ValidationError):
+        question.text = "changed"
+
+
+def test_question_rejects_unknown_fields():
+    """Unknown fields are rejected so typos are not silently ignored."""
+    data = valid_question_data()
+    data["colour"] = "red"
+    with pytest.raises(ValidationError):
+        Question.model_validate(data)

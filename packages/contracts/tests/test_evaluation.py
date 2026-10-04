@@ -1,7 +1,12 @@
 from typing import Any
 
 import pytest
-from contracts.evaluation import Evaluation, MetricScore
+from contracts.evaluation import (
+    MAX_FEEDBACK_LENGTH,
+    MAX_SUMMARY_LENGTH,
+    Evaluation,
+    MetricScore,
+)
 from pydantic import ValidationError
 
 METRICS = ["correctness", "depth", "clarity", "relevance"]
@@ -84,3 +89,56 @@ def test_evaluation_names_the_failing_metric():
     with pytest.raises(ValidationError) as exc_info:
         Evaluation.model_validate(data)
     assert exc_info.value.errors()[0]["loc"] == ("depth", "score")
+
+
+def test_metric_score_accepts_maximum_feedback_length():
+    """Feedback exactly at the length limit is valid."""
+    MetricScore.model_validate({"score": 5, "feedback": "a" * MAX_FEEDBACK_LENGTH})
+
+
+def test_metric_score_rejects_overlong_feedback():
+    """Feedback over the length limit is invalid."""
+    with pytest.raises(ValidationError):
+        MetricScore.model_validate({"score": 5, "feedback": "a" * (MAX_FEEDBACK_LENGTH + 1)})
+
+
+def test_evaluation_accepts_maximum_summary_length():
+    """A summary exactly at the length limit is valid."""
+    data = valid_evaluation_data()
+    data["summary"] = "a" * MAX_SUMMARY_LENGTH
+    Evaluation.model_validate(data)
+
+
+def test_evaluation_rejects_overlong_summary():
+    """A summary over the length limit is invalid."""
+    data = valid_evaluation_data()
+    data["summary"] = "a" * (MAX_SUMMARY_LENGTH + 1)
+    with pytest.raises(ValidationError):
+        Evaluation.model_validate(data)
+
+
+def test_metric_score_ignores_unknown_fields():
+    """Extra keys from the LLM are ignored instead of failing the grade."""
+    result = MetricScore.model_validate({"score": 5, "feedback": "Fine.", "confidence": 0.9})
+    assert not hasattr(result, "confidence")
+
+
+def test_evaluation_ignores_unknown_fields():
+    """Extra keys from the LLM are ignored instead of failing the grade."""
+    data = valid_evaluation_data()
+    data["overall"] = 9
+    assert not hasattr(Evaluation.model_validate(data), "overall")
+
+
+def test_metric_score_is_immutable():
+    """A metric score cannot be changed after creation."""
+    result = MetricScore.model_validate({"score": 5, "feedback": "Fine."})
+    with pytest.raises(ValidationError):
+        result.score = 1
+
+
+def test_evaluation_is_immutable():
+    """An evaluation cannot be changed after creation."""
+    evaluation = Evaluation.model_validate(valid_evaluation_data())
+    with pytest.raises(ValidationError):
+        evaluation.summary = "changed"
