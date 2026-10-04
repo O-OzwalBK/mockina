@@ -2,9 +2,8 @@ from itertools import product
 from typing import Any
 
 import pytest
-from pydantic import ValidationError
-
 from contracts.turn import MAX_GRADING_ERROR_LENGTH, Turn, TurnStatus
+from pydantic import ValidationError
 
 QUESTION_ID = "3fa85f64-5717-4562-b3fc-2c963f66afa6"
 OTHER_QUESTION_ID = "9c1d2e3f-4a5b-4c6d-8e7f-0a1b2c3d4e5f"
@@ -162,7 +161,7 @@ def test_turn_is_immutable():
     """Fields cannot be assigned after creation, so a turn cannot skip validation."""
     turn = new_turn()
     with pytest.raises(ValidationError):
-        setattr(turn, "status", TurnStatus.GRADED)
+        turn.status = TurnStatus.GRADED
 
 
 def test_turn_updated_moves_to_the_next_state():

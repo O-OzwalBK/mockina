@@ -1,7 +1,8 @@
-from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field
+
+from contracts.common import UtcDatetime, utc_now
 
 MAX_JOB_TITLE_LENGTH = 120
 MAX_JOB_DESCRIPTION_LENGTH = 20_000
@@ -46,14 +47,8 @@ class Preparation(PreparationCreate):
         default_factory=uuid4,
         examples=["3fa85f64-5717-4562-b3fc-2c963f66afa6"],
     )
-    created_at: AwareDatetime = Field(
+    created_at: UtcDatetime = Field(
+        default_factory=utc_now,
         description="When the preparation was created, as a timezone-aware UTC time.",
-        default_factory=lambda: datetime.now(UTC),
         examples=["2026-10-03T09:30:00Z"],
     )
-
-    @field_validator("created_at")
-    @classmethod
-    def convert_to_utc(cls, value: datetime) -> datetime:
-        """Store every timestamp in UTC, whatever offset the client sent."""
-        return value.astimezone(UTC)

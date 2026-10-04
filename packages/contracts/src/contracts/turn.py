@@ -1,8 +1,9 @@
 from enum import StrEnum
-from typing import Any, Self
+from typing import Self
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import Field, model_validator
 
+from contracts.common import ImmutableModel
 from contracts.evaluation import Evaluation
 from contracts.interviewer import Question
 from contracts.transcript import Answer
@@ -34,7 +35,7 @@ EXPECTED_PARTS: dict[TurnStatus, tuple[bool, bool, bool]] = {
 }
 
 
-class Turn(BaseModel):
+class Turn(ImmutableModel):
     """One question-and-answer exchange in an interview session.
 
     A turn moves through the states described by TurnStatus, and the fields that
@@ -43,8 +44,6 @@ class Turn(BaseModel):
     `model_copy(update=...)`, because it skips validation and can produce an
     invalid turn.
     """
-
-    model_config = ConfigDict(frozen=True, extra="forbid", str_strip_whitespace=True)
 
     question: Question = Field(description="The question the interviewer asked.")
     status: TurnStatus = Field(
@@ -89,11 +88,3 @@ class Turn(BaseModel):
         if self.evaluation is not None and self.evaluation.question_id != self.question.id:
             raise ValueError("The evaluation grades a different question than this turn's question.")
         return self
-
-    def updated(self, **changes: Any) -> Self:
-        """Return a new, validated turn with the given fields changed.
-
-        Use this to move a turn to its next state. Changes that break the
-        life-cycle rules raise a ValidationError instead of being stored.
-        """
-        return type(self).model_validate({**self.model_dump(), **changes})

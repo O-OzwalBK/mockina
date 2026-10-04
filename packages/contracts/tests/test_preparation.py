@@ -2,8 +2,6 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
-from pydantic import ValidationError
-
 from contracts.preparation import (
     MAX_JOB_DESCRIPTION_LENGTH,
     MAX_JOB_TITLE_LENGTH,
@@ -11,6 +9,7 @@ from contracts.preparation import (
     Preparation,
     PreparationCreate,
 )
+from pydantic import ValidationError
 
 LENGTH_LIMITS = {
     "job_title": MAX_JOB_TITLE_LENGTH,
