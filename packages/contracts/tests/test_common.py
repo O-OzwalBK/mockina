@@ -1,9 +1,8 @@
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from pydantic import BaseModel, ValidationError
-
 from contracts.common import ImmutableModel, UtcDatetime, utc_now
+from pydantic import BaseModel, ValidationError
 
 
 class Stamp(BaseModel):
@@ -55,7 +54,7 @@ def test_immutable_model_cannot_be_assigned_to():
     """Fields cannot be changed after creation."""
     label = Label.model_validate({"name": "a"})
     with pytest.raises(ValidationError):
-        setattr(label, "name", "b")
+        label.name = "b"
 
 
 def test_immutable_model_rejects_unknown_fields():
