@@ -11,6 +11,7 @@ MAX_RESUME_LENGTH = 20_000
 
 # Client request shape
 
+
 class PreparationCreate(ImmutableModel):
     """What a client sends to start preparing for a job."""
 
@@ -36,6 +37,7 @@ class PreparationCreate(ImmutableModel):
 
 
 # Server owned fields
+
 
 class Preparation(PreparationCreate):
     """A stored preparation: what the client sent, plus the fields the server owns."""

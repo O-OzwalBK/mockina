@@ -163,6 +163,7 @@ def test_session_rejects_update_before_end():
 
 # --- Turns ---
 
+
 def test_session_accepts_maximum_number_of_turns():
     """A session with exactly the maximum number of turns is valid."""
     data = session_data()
@@ -177,7 +178,7 @@ def test_session_rejects_too_many_turns():
     with pytest.raises(ValidationError):
         InterviewSession.model_validate(data)
 
-        
+
 def test_session_rejects_duplicate_questions():
     """The same question cannot appear in two turns."""
     data = session_data()
@@ -190,14 +191,20 @@ def test_session_rejects_duplicate_questions():
 def test_session_accepts_open_question_as_last_turn():
     """The last turn may still be waiting for an answer."""
     data = session_data()
-    data["turns"] = [make_turn_data(TurnStatus.AWAITING_GRADE), make_turn_data(TurnStatus.AWAITING_ANSWER)]
+    data["turns"] = [
+        make_turn_data(TurnStatus.AWAITING_GRADE),
+        make_turn_data(TurnStatus.AWAITING_ANSWER),
+    ]
     InterviewSession.model_validate(data)
 
 
 def test_session_rejects_open_question_before_the_last_turn():
     """Only one question can be open at a time: an unanswered turn must be the last."""
     data = session_data()
-    data["turns"] = [make_turn_data(TurnStatus.AWAITING_ANSWER), make_turn_data(TurnStatus.AWAITING_GRADE)]
+    data["turns"] = [
+        make_turn_data(TurnStatus.AWAITING_ANSWER),
+        make_turn_data(TurnStatus.AWAITING_GRADE),
+    ]
     with pytest.raises(ValidationError):
         InterviewSession.model_validate(data)
 
@@ -213,7 +220,10 @@ def test_session_rejects_completed_without_turns():
 def test_session_rejects_completed_with_unanswered_question():
     """A completed session cannot end with a question the user never answered."""
     data = session_data(SessionStatus.COMPLETED, ended=True)
-    data["turns"] = [make_turn_data(TurnStatus.AWAITING_GRADE), make_turn_data(TurnStatus.AWAITING_ANSWER)]
+    data["turns"] = [
+        make_turn_data(TurnStatus.AWAITING_GRADE),
+        make_turn_data(TurnStatus.AWAITING_ANSWER),
+    ]
     with pytest.raises(ValidationError):
         InterviewSession.model_validate(data)
 
@@ -221,7 +231,10 @@ def test_session_rejects_completed_with_unanswered_question():
 def test_session_allows_abandoned_with_unanswered_question():
     """A user who leaves mid-question leaves an abandoned session with an open question."""
     data = session_data(SessionStatus.ABANDONED, ended=True)
-    data["turns"] = [make_turn_data(TurnStatus.AWAITING_GRADE), make_turn_data(TurnStatus.AWAITING_ANSWER)]
+    data["turns"] = [
+        make_turn_data(TurnStatus.AWAITING_GRADE),
+        make_turn_data(TurnStatus.AWAITING_ANSWER),
+    ]
     InterviewSession.model_validate(data)
 
 

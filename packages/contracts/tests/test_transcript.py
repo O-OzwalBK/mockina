@@ -23,6 +23,7 @@ def answer_data(**overrides: Any) -> dict[str, Any]:
     data.update(overrides)
     return data
 
+
 # WordTiming model tests
 
 
@@ -39,6 +40,7 @@ def test_word_timing_accepts_non_negative_start(good_start_timestamp):
     """A word with non-negative start timestamp is valid"""
     timing = WordTiming(word="hi", start=good_start_timestamp, end=4000.0)
     assert timing.start == good_start_timestamp
+
 
 @pytest.mark.parametrize("bad_start_timestamp", [-0.001, -1, -1000])
 def test_word_timing_rejects_negative_start_time_for_word(bad_start_timestamp):
@@ -85,7 +87,8 @@ def test_word_timing_is_immutable():
     timing = WordTiming.model_validate(word(0.0, 0.4))
     with pytest.raises(ValidationError):
         timing.word = "changed"
-        
+
+
 # Answer model tests
 
 
@@ -119,7 +122,7 @@ def test_answer_rejects_negative_duration():
 def test_answer_requires_duration():
     """Duration is required."""
     with pytest.raises(ValidationError):
-        Answer(transcript="hi") # type: ignore[call-arg]
+        Answer(transcript="hi")  # type: ignore[call-arg]
 
 
 def test_answer_rejects_bad_timing_inside_words():
@@ -127,7 +130,7 @@ def test_answer_rejects_bad_timing_inside_words():
     with pytest.raises(ValidationError) as exc_info:
         Answer(
             transcript="hi",
-            words=[{"word": "hi", "start": -1, "end": 0.4}],    # type: ignore[call-arg]
+            words=[{"word": "hi", "start": -1, "end": 0.4}],  # type: ignore[call-arg]
             duration=1.0,
         )
     # The error should point at exactly which field of which word failed.

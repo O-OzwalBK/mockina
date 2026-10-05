@@ -10,6 +10,7 @@ from pydantic import ValidationError
 
 LENGTH_LIMITS = {"text": MAX_QUESTION_TEXT_LENGTH, "skill_id": MAX_SKILL_ID_LENGTH}
 
+
 def valid_question_data() -> dict[str, Any]:
     """A fresh, valid question as a dictionary, for tests to modify."""
     return {

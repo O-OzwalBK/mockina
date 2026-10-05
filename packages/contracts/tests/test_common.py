@@ -18,7 +18,7 @@ class Label(ImmutableModel):
     size: int = 1
 
 
-# --- utc_now and UtcDatetime ---
+# utc_now and UtcDatetime
 
 
 def test_utc_now_is_timezone_aware_utc():
@@ -47,7 +47,7 @@ def test_utc_datetime_rejects_naive_values():
         Stamp.model_validate({"at": "2026-10-04T09:00:00"})
 
 
-# --- ImmutableModel ---
+# ImmutableModel tests
 
 
 def test_immutable_model_cannot_be_assigned_to():

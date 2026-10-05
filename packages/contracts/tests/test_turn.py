@@ -156,11 +156,13 @@ def test_turn_rejects_grading_error_over_maximum_length():
 
 # --- Immutability and updated() ---
 
+
 def test_turn_nested_models_cannot_be_changed():
     """The question inside a turn is immutable too, so a validated turn cannot be altered from outside."""
     turn = new_turn()
     with pytest.raises(ValidationError):
         turn.question.text = "changed"
+
 
 def test_turn_is_immutable():
     """Fields cannot be assigned after creation, so a turn cannot skip validation."""
@@ -193,7 +195,9 @@ def test_turn_updated_rejects_unknown_fields():
 
 def test_turn_can_retry_after_failed_grading():
     """A failed turn goes back to awaiting_grade once its error is cleared."""
-    failed = Turn.model_validate(build_turn_data(TurnStatus.GRADING_FAILED, has_answer=True, has_error=True))
+    failed = Turn.model_validate(
+        build_turn_data(TurnStatus.GRADING_FAILED, has_answer=True, has_error=True)
+    )
     retry = failed.updated(status=TurnStatus.AWAITING_GRADE, grading_error=None)
     assert retry.status == TurnStatus.AWAITING_GRADE
     assert retry.grading_error is None

@@ -15,9 +15,9 @@ METRICS = ["correctness", "depth", "clarity", "relevance"]
 QUESTION_ID = "3fa85f64-5717-4562-b3fc-2c963f66afa6"
 
 
-def valid_evaluation_data() -> dict[str,Any]:
+def valid_evaluation_data() -> dict[str, Any]:
     """A fresh, valid evaluation as a dictionary, for tests to modify."""
-    data: dict[str,Any] = {"question_id": QUESTION_ID, "summary": "Solid answer overall."}
+    data: dict[str, Any] = {"question_id": QUESTION_ID, "summary": "Solid answer overall."}
     for metric in METRICS:
         data[metric] = {"score": 7, "feedback": "Reasonable."}
     return data

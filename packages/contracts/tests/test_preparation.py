@@ -101,6 +101,7 @@ def test_preparation_create_rejects_unknown_fields(field):
 
 # Preparation model tests
 
+
 def test_preparation_create_is_immutable():
     """A preparation request cannot be changed after creation."""
     request = PreparationCreate.model_validate(valid_create_data())
@@ -113,7 +114,7 @@ def test_preparation_is_immutable():
     preparation = Preparation.model_validate(valid_create_data())
     with pytest.raises(ValidationError):
         preparation.job_title = "changed"
-        
+
 
 def test_preparation_accepts_server_fields():
     """A stored preparation carries the request fields plus an id and a creation time."""

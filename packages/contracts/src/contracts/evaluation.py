@@ -44,9 +44,7 @@ class Evaluation(ImmutableModel):
     depth: MetricScore = Field(
         description="How far the answer goes beyond surface-level knowledge."
     )
-    clarity: MetricScore = Field(
-        description="How clearly and logically the answer is structured."
-    )
+    clarity: MetricScore = Field(description="How clearly and logically the answer is structured.")
     relevance: MetricScore = Field(
         description="How well the answer addresses the question and the role."
     )

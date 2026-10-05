@@ -9,6 +9,7 @@ from contracts.turn import Turn, TurnStatus
 
 MAX_TURNS_PER_SESSION = 100
 
+
 class SessionStatus(StrEnum):
     """Where an interview session is in its life cycle.
 

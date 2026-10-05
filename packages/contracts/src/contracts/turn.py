@@ -86,5 +86,7 @@ class Turn(ImmutableModel):
                 f"but has {actual}."
             )
         if self.evaluation is not None and self.evaluation.question_id != self.question.id:
-            raise ValueError("The evaluation grades a different question than this turn's question.")
+            raise ValueError(
+                "The evaluation grades a different question than this turn's question."
+            )
         return self
