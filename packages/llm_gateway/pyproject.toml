@@ -1,7 +1,7 @@
 [project]
 name = "llm-gateway"
 version = "0.1.0"
-description = "Add your description here"
+description = "One way to talk to any OpenAI-compatible language model: settings, context budget, retries, and clear errors."
 readme = "README.md"
 authors = [
     { name = "Mahakaal", email = "59462639+O-ozwal@users.noreply.github.com" }
@@ -9,6 +9,7 @@ authors = [
 requires-python = ">=3.12"
 dependencies = [
     "contracts",
+    "pydantic-settings>=2.15.0",
 ]
 
 [build-system]
