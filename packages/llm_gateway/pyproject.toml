@@ -10,6 +10,7 @@ requires-python = ">=3.12"
 dependencies = [
     "contracts",
     "pydantic-settings>=2.15.0",
+    "httpx2>=2.13.1",
 ]
 
 [build-system]

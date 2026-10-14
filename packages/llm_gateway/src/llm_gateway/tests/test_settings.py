@@ -33,6 +33,11 @@ def load() -> LLMSettings:
     return LLMSettings(_env_file=None)  # pyright: ignore[reportCallIssue]
 
 
+def load_with_env_file() -> LLMSettings:
+    """Read the settings the way the app does: the environment plus any .env file found."""
+    return LLMSettings()  # pyright: ignore[reportCallIssue]
+
+
 def test_required_values_are_read_from_the_environment(required):
     """The base URL and model name come from LLM_BASE_URL and LLM_MODEL."""
     settings = load()
@@ -149,7 +154,7 @@ def write_env_file(folder, text):
 def test_env_file_in_the_current_folder_is_read(monkeypatch, tmp_path):
     """Settings are loaded from a .env file in the folder the program starts from."""
     monkeypatch.chdir(write_env_file(tmp_path / "repo", "LLM_BASE_URL=http://a/v1\nLLM_MODEL=m1\n"))
-    settings = LLMSettings()  # pyright: ignore[reportCallIssue]
+    settings = load_with_env_file()  # pyright: ignore[reportCallIssue]
     assert settings.base_url == "http://a/v1"
     assert settings.model == "m1"
 
@@ -160,7 +165,7 @@ def test_env_file_two_folders_up_is_found_from_apps_api(monkeypatch, tmp_path):
     api_folder = repo / "apps" / "api"
     api_folder.mkdir(parents=True)
     monkeypatch.chdir(api_folder)
-    assert LLMSettings().model == "root-model"  # pyright: ignore[reportCallIssue]
+    assert load_with_env_file().model == "root-model"  # pyright: ignore[reportCallIssue]
 
 
 def test_env_file_in_the_current_folder_beats_the_one_at_the_root(monkeypatch, tmp_path):
@@ -168,7 +173,7 @@ def test_env_file_in_the_current_folder_beats_the_one_at_the_root(monkeypatch, t
     repo = write_env_file(tmp_path / "repo", "LLM_BASE_URL=http://root/v1\nLLM_MODEL=root-model\n")
     api_folder = write_env_file(repo / "apps" / "api", "LLM_MODEL=local-model\n")
     monkeypatch.chdir(api_folder)
-    settings = LLMSettings()  # pyright: ignore[reportCallIssue]
+    settings = load_with_env_file()  # pyright: ignore[reportCallIssue]
     assert settings.model == "local-model"
     assert settings.base_url == "http://root/v1"
 
@@ -179,13 +184,13 @@ def test_real_environment_variables_beat_the_env_file(monkeypatch, tmp_path):
         write_env_file(tmp_path / "repo", "LLM_BASE_URL=http://a/v1\nLLM_MODEL=file\n")
     )
     monkeypatch.setenv("LLM_MODEL", "from-environment")
-    assert LLMSettings().model == "from-environment"  # pyright: ignore[reportCallIssue]
+    assert load_with_env_file().model == "from-environment"  # pyright: ignore[reportCallIssue]
 
 
 def test_unrelated_lines_in_the_env_file_are_ignored(monkeypatch, tmp_path):
     """Other settings in the same .env file, such as ones for other tools, do not cause an error."""
     text = "LLM_BASE_URL=http://a/v1\nLLM_MODEL=m\nDATABASE_URL=sqlite:///x.db\nLLM_API_KEY=\n"
     monkeypatch.chdir(write_env_file(tmp_path / "repo", text))
-    settings = LLMSettings()  # pyright: ignore[reportCallIssue]
+    settings = load_with_env_file()  # pyright: ignore[reportCallIssue]
     assert settings.model == "m"
     assert settings.api_key is None
