@@ -34,7 +34,7 @@ which skills are strong and which need work, across all your practice sessions.
 | `packages/contracts` | Shared data models and their validation rules |
 | `packages/engine` | Interview flow (planned) |
 | `packages/evaluator` | Grading answers (planned) |
-| `packages/llm_gateway` | Talking to language-model providers (planned) |
+| `packages/llm_gateway` | Talking to language-model providers |
 | `packages/session_store` | Saving and loading sessions (planned) |
 | `packages/skill_graph` | Skill identities and mastery tracking (planned) |
 | `packages/voice` | Speech-to-text and text-to-speech integration (planned) |

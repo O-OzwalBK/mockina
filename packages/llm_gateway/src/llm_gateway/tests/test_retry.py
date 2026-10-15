@@ -1,5 +1,4 @@
 import asyncio
-from collections.abc import Sequence
 from typing import Any
 
 import httpx2
@@ -20,6 +19,7 @@ from llm_gateway import (
     OpenAICompatibleLLM,
     RetryingLLM,
 )
+from llm_gateway.testing import FakeLLM
 
 MESSAGES = [ChatMessage(role="user", content="Grade this answer.")]
 REPLY = Completion(text="ok", model="test-model")
@@ -29,37 +29,6 @@ REPLY = Completion(text="ok", model="test-model")
 def anyio_backend():
     """Use anysyncio backend for async tests"""
     return "asyncio"
-
-
-class ScriptedLLM:
-    """A pretend LLM that plays back a list of outcomes, one per call.
-
-    An outcome is either a Completion to return or an exception to raise. Every call is
-    remembered, so a test can check how many attempts were made and with what.
-    """
-
-    def __init__(self, *outcomes: Completion | BaseException) -> None:
-        self.outcomes = list(outcomes)
-        self.calls: list[dict[str, Any]] = []
-
-    async def complete(
-        self,
-        messages: Sequence[ChatMessage],
-        *,
-        temperature: float = 0.2,
-        max_output_tokens: int | None = None,
-    ) -> Completion:
-        self.calls.append(
-            {
-                "messages": list(messages),
-                "temperature": temperature,
-                "max_output_tokens": max_output_tokens,
-            }
-        )
-        outcome = self.outcomes.pop(0)
-        if isinstance(outcome, BaseException):
-            raise outcome
-        return outcome
 
 
 class Sleeps:
@@ -93,7 +62,7 @@ def make_retrying(
 @pytest.mark.anyio
 async def test_a_reply_on_the_first_try_is_returned_without_waiting():
     """When nothing goes wrong there is exactly one call and no pause."""
-    inner = ScriptedLLM(REPLY)
+    inner = FakeLLM(REPLY)
     retrying, sleeps = make_retrying(inner)
     assert await retrying.complete(MESSAGES) == REPLY
     assert len(inner.calls) == 1
@@ -103,7 +72,7 @@ async def test_a_reply_on_the_first_try_is_returned_without_waiting():
 @pytest.mark.anyio
 async def test_a_temporary_error_is_retried_and_the_later_reply_is_returned():
     """A failure that may pass is followed by a pause and another attempt."""
-    inner = ScriptedLLM(LLMServerError("busy"), REPLY)
+    inner = FakeLLM(LLMServerError("busy"), REPLY)
     retrying, sleeps = make_retrying(inner)
     assert await retrying.complete(MESSAGES) == REPLY
     assert len(inner.calls) == 2
@@ -116,7 +85,7 @@ async def test_a_temporary_error_is_retried_and_the_later_reply_is_returned():
 )
 async def test_every_temporary_kind_of_error_is_retried(error_class):
     """Timeouts, refused connections, server errors and rate limits are all worth a second try."""
-    inner = ScriptedLLM(error_class("temporary"), REPLY)
+    inner = FakeLLM(error_class("temporary"), REPLY)
     retrying, _ = make_retrying(inner)
     assert await retrying.complete(MESSAGES) == REPLY
     assert len(inner.calls) == 2
@@ -129,7 +98,7 @@ async def test_every_temporary_kind_of_error_is_retried(error_class):
 )
 async def test_errors_that_will_not_get_better_are_raised_at_once(error_class):
     """A wrong key, a bad request or a too-long prompt fails the same way every time."""
-    inner = ScriptedLLM(error_class("permanent"), REPLY)
+    inner = FakeLLM(error_class("permanent"), REPLY)
     retrying, sleeps = make_retrying(inner)
     with pytest.raises(error_class, match="permanent"):
         await retrying.complete(MESSAGES)
@@ -140,7 +109,7 @@ async def test_errors_that_will_not_get_better_are_raised_at_once(error_class):
 @pytest.mark.anyio
 async def test_errors_that_are_not_llm_errors_are_not_retried():
     """A bug is not a temporary failure: it passes through untouched and is not repeated."""
-    inner = ScriptedLLM(ValueError("a bug"), REPLY)
+    inner = FakeLLM(ValueError("a bug"), REPLY)
     retrying, sleeps = make_retrying(inner)
     with pytest.raises(ValueError, match="a bug"):
         await retrying.complete(MESSAGES)
@@ -154,7 +123,7 @@ async def test_errors_that_are_not_llm_errors_are_not_retried():
 @pytest.mark.anyio
 async def test_it_gives_up_after_max_retries_and_raises_the_last_error():
     """max_retries=2 means three attempts in all, and the caller sees the final failure."""
-    inner = ScriptedLLM(
+    inner = FakeLLM(
         LLMServerError("first"), LLMServerError("second"), LLMServerError("third"), REPLY
     )
     retrying, sleeps = make_retrying(inner, max_retries=2)
@@ -167,7 +136,7 @@ async def test_it_gives_up_after_max_retries_and_raises_the_last_error():
 @pytest.mark.anyio
 async def test_max_retries_zero_means_a_single_attempt():
     """Zero retries switches the feature off: one call, and the error goes straight out."""
-    inner = ScriptedLLM(LLMTimeoutError("slow"), REPLY)
+    inner = FakeLLM(LLMTimeoutError("slow"), REPLY)
     retrying, sleeps = make_retrying(inner, max_retries=0)
     with pytest.raises(LLMTimeoutError):
         await retrying.complete(MESSAGES)
@@ -181,7 +150,7 @@ async def test_max_retries_zero_means_a_single_attempt():
 @pytest.mark.anyio
 async def test_waits_double_each_time_and_stop_growing_at_the_cap():
     """With full delays the pauses go 0.5, 1, 2, 4 and then stay at the 8 second cap."""
-    inner = ScriptedLLM(*[LLMServerError("busy")] * 7)
+    inner = FakeLLM(*[LLMServerError("busy")] * 7)
     retrying, sleeps = make_retrying(inner, max_retries=6)
     with pytest.raises(LLMServerError):
         await retrying.complete(MESSAGES)
@@ -191,7 +160,7 @@ async def test_waits_double_each_time_and_stop_growing_at_the_cap():
 @pytest.mark.anyio
 async def test_a_huge_retry_count_does_not_overflow_the_delay_arithmetic():
     """Two to the power of 1,100 does not fit in a float, so the doubling must be stopped early."""
-    inner = ScriptedLLM(*[LLMServerError("busy")] * 1101)
+    inner = FakeLLM(*[LLMServerError("busy")] * 1101)
     retrying, sleeps = make_retrying(inner, max_retries=1100)
     with pytest.raises(LLMServerError):
         await retrying.complete(MESSAGES)
@@ -206,7 +175,7 @@ async def test_a_huge_retry_count_does_not_overflow_the_delay_arithmetic():
 )
 async def test_jitter_scales_each_pause_between_nothing_and_the_full_delay(jitter, expected):
     """The random factor shrinks every pause, so many clients do not retry at the same moment."""
-    inner = ScriptedLLM(*[LLMServerError("busy")] * 4)
+    inner = FakeLLM(*[LLMServerError("busy")] * 4)
     retrying, sleeps = make_retrying(inner, max_retries=3, jitter=jitter)
     with pytest.raises(LLMServerError):
         await retrying.complete(MESSAGES)
@@ -216,7 +185,7 @@ async def test_jitter_scales_each_pause_between_nothing_and_the_full_delay(jitte
 @pytest.mark.anyio
 async def test_the_base_and_cap_of_the_delay_can_be_chosen():
     """base_delay_seconds and max_delay_seconds set where the doubling starts and stops."""
-    inner = ScriptedLLM(*[LLMServerError("busy")] * 4)
+    inner = FakeLLM(*[LLMServerError("busy")] * 4)
     retrying, sleeps = make_retrying(
         inner, max_retries=3, base_delay_seconds=1.0, max_delay_seconds=3.0
     )
@@ -231,7 +200,7 @@ async def test_the_base_and_cap_of_the_delay_can_be_chosen():
 @pytest.mark.anyio
 async def test_a_retry_after_from_the_provider_replaces_the_backoff():
     """When the provider says how long to wait, we wait that long, not our own guess."""
-    inner = ScriptedLLM(LLMRateLimitError("slow down", retry_after=3.0), REPLY)
+    inner = FakeLLM(LLMRateLimitError("slow down", retry_after=3.0), REPLY)
     retrying, sleeps = make_retrying(inner)
     assert await retrying.complete(MESSAGES) == REPLY
     assert sleeps.delays == [3.0]
@@ -240,7 +209,7 @@ async def test_a_retry_after_from_the_provider_replaces_the_backoff():
 @pytest.mark.anyio
 async def test_a_retry_after_of_zero_is_obeyed_and_not_mistaken_for_missing():
     """Zero is a real answer ('retry now'), so it must not fall back to the backoff."""
-    inner = ScriptedLLM(LLMRateLimitError("go ahead", retry_after=0.0), REPLY)
+    inner = FakeLLM(LLMRateLimitError("go ahead", retry_after=0.0), REPLY)
     retrying, sleeps = make_retrying(inner)
     assert await retrying.complete(MESSAGES) == REPLY
     assert sleeps.delays == [0.0]
@@ -249,7 +218,7 @@ async def test_a_retry_after_of_zero_is_obeyed_and_not_mistaken_for_missing():
 @pytest.mark.anyio
 async def test_a_rate_limit_without_retry_after_uses_the_backoff():
     """No hint from the provider means the normal doubling delays apply."""
-    inner = ScriptedLLM(LLMRateLimitError("slow down"), REPLY)
+    inner = FakeLLM(LLMRateLimitError("slow down"), REPLY)
     retrying, sleeps = make_retrying(inner)
     assert await retrying.complete(MESSAGES) == REPLY
     assert sleeps.delays == [0.5]
@@ -258,7 +227,7 @@ async def test_a_rate_limit_without_retry_after_uses_the_backoff():
 @pytest.mark.anyio
 async def test_a_retry_after_exactly_at_the_cap_is_waited_for():
     """The cap is the longest wait we accept, so a request for exactly that is fine."""
-    inner = ScriptedLLM(LLMRateLimitError("slow down", retry_after=8.0), REPLY)
+    inner = FakeLLM(LLMRateLimitError("slow down", retry_after=8.0), REPLY)
     retrying, sleeps = make_retrying(inner)
     assert await retrying.complete(MESSAGES) == REPLY
     assert sleeps.delays == [8.0]
@@ -267,7 +236,7 @@ async def test_a_retry_after_exactly_at_the_cap_is_waited_for():
 @pytest.mark.anyio
 async def test_a_retry_after_longer_than_the_cap_is_not_waited_for():
     """A person is waiting on this call, so a one minute wait is refused and the error raised."""
-    inner = ScriptedLLM(LLMRateLimitError("slow down", retry_after=60.0), REPLY)
+    inner = FakeLLM(LLMRateLimitError("slow down", retry_after=60.0), REPLY)
     retrying, sleeps = make_retrying(inner)
     with pytest.raises(LLMRateLimitError) as caught:
         await retrying.complete(MESSAGES)
@@ -282,24 +251,26 @@ async def test_a_retry_after_longer_than_the_cap_is_not_waited_for():
 @pytest.mark.anyio
 async def test_every_attempt_gets_the_same_conversation_and_settings():
     """A retry repeats the request exactly: same messages, temperature and reply limit."""
-    inner = ScriptedLLM(LLMTimeoutError("slow"), REPLY)
+
+    inner = FakeLLM(LLMTimeoutError("slow"), REPLY)
     retrying, _ = make_retrying(inner)
     await retrying.complete(MESSAGES, temperature=0.7, max_output_tokens=200)
     first, second = inner.calls
     assert first == second
-    assert first["messages"] == MESSAGES
-    assert first["temperature"] == 0.7
-    assert first["max_output_tokens"] == 200
+    assert first.messages == tuple(MESSAGES)
+    assert first.temperature == 0.7
+    assert first.max_output_tokens == 200
 
 
 @pytest.mark.anyio
 async def test_the_default_settings_are_passed_on_as_they_are():
     """Not giving a temperature or limit means the wrapped LLM uses its own defaults."""
-    inner = ScriptedLLM(REPLY)
+
+    inner = FakeLLM(REPLY)
     retrying, _ = make_retrying(inner)
     await retrying.complete(MESSAGES)
-    assert inner.calls[0]["temperature"] == 0.2
-    assert inner.calls[0]["max_output_tokens"] is None
+    assert inner.calls[0].temperature == 0.2
+    assert inner.calls[0].max_output_tokens is None
 
 
 @pytest.mark.anyio
@@ -309,7 +280,7 @@ async def test_cancelling_during_a_pause_stops_the_retrying():
     async def cancelled_sleep(seconds: float) -> None:
         raise asyncio.CancelledError
 
-    inner = ScriptedLLM(LLMServerError("busy"), REPLY)
+    inner = FakeLLM(LLMServerError("busy"), REPLY)
     retrying = RetryingLLM(inner, max_retries=3, sleep=cancelled_sleep)
     with pytest.raises(asyncio.CancelledError):
         await retrying.complete(MESSAGES)
@@ -321,7 +292,7 @@ async def test_cancelling_during_a_pause_stops_the_retrying():
 
 def test_the_wrapper_counts_as_an_llm_itself():
     """Anything that accepts an LLM accepts a RetryingLLM, so wrappers can be stacked."""
-    assert isinstance(RetryingLLM(ScriptedLLM(), max_retries=1), LLM)
+    assert isinstance(RetryingLLM(FakeLLM(), max_retries=1), LLM)
 
 
 @pytest.mark.parametrize(
@@ -336,13 +307,13 @@ def test_the_wrapper_counts_as_an_llm_itself():
 def test_values_that_make_no_sense_are_refused_when_building(bad_arguments):
     """A wrong number is reported when the wrapper is built, not in the middle of an interview."""
     with pytest.raises(ValueError):
-        RetryingLLM(ScriptedLLM(), **bad_arguments)
+        RetryingLLM(FakeLLM(), **bad_arguments)
 
 
 @pytest.mark.anyio
 async def test_the_real_sleep_and_randomness_are_used_when_none_are_given():
     """Left to its defaults the wrapper really pauses (here for a millisecond) and still works."""
-    inner = ScriptedLLM(LLMServerError("busy"), REPLY)
+    inner = FakeLLM(LLMServerError("busy"), REPLY)
     retrying = RetryingLLM(inner, max_retries=1, base_delay_seconds=0.001, max_delay_seconds=0.001)
     assert await retrying.complete(MESSAGES) == REPLY
     assert len(inner.calls) == 2
