@@ -167,9 +167,9 @@ class OpenAICompatibleLLM:
     """Talks to any server that speaks the OpenAI chat completions protocol.
 
     That covers Ollama, LM Studio, vLLM, llama.cpp's server, and hosted providers of
-    open-weight models. Which one it talks to is decided only by LLMSettings. A
-    `transport` can be passed in tests to replace the network. Close the client with
-    `aclose()`, or use it in an `async with` block, when you are done with it.
+    open-weight models. Which one it talks to is decided only by LLMSettings.
+    A `transport` can be passed in tests to replace the network.
+    Close the client with `aclose()`, or use it in an `async with` block, when you are done with it.
     """
 
     def __init__(
@@ -248,3 +248,34 @@ class OpenAICompatibleLLM:
 
     async def __aexit__(self, *exc_info: object) -> None:
         await self.aclose()
+
+    async def list_models(self) -> list[str]:
+        """Return model IDs reported by the OpenAI-compatible provider."""
+
+        try:
+            response = await self._client.get("/models")
+        except httpx2.ConnectTimeout as error:
+            raise LLMConnectionError(
+                f"Could not connect to the model server within "
+                f"{self._settings.timeout_seconds:g} seconds. Check that is running and that LLM_BASE_URL is correct."
+            ) from error
+
+        raise_for_error_status(response)
+
+        try:
+            payload = response.json()
+        except ValueError as error:
+            raise LLMResponseError("The model list reply was not valid JSON.") from error
+
+        entries = payload.get("data") if isinstance(payload, dict) else None
+        if not isinstance(entries, list):
+            raise
+
+        model_ids: list[str] = []
+        for entry in entries:
+            model_id = entry.get("id") if isinstance(entry, dict) else None
+            if not isinstance(model_id, str) or not model_id.strip():
+                raise LLMResponseError("The model ID is not a string.")
+            model_ids.append(model_id)
+
+        return model_ids
