@@ -21,6 +21,7 @@ from llm_gateway.errors import (
 )
 from llm_gateway.interface import LLM
 from llm_gateway.models import ChatMessage, Completion
+from llm_gateway.retry import RetryingLLM
 from llm_gateway.settings import LLMSettings
 
 __all__ = [
@@ -38,6 +39,7 @@ __all__ = [
     "LLMSettings",
     "LLMTimeoutError",
     "OpenAICompatibleLLM",
+    "RetryingLLM",
     "check_context_budget",
     "estimate_prompt_tokens",
     "estimate_tokens",

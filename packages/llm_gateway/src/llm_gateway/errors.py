@@ -13,7 +13,8 @@ class LLMError(Exception):
 
 
 class LLMConnectionError(LLMError):
-    """The model server could not be reached: it is down, the address is wrong, or there is no network."""
+    """The model server could not be reached.
+    It is down, the address is wrong, there is no network, or it did not accept the connection within the time limit."""
 
     retryable: ClassVar[bool] = True
 

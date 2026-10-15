@@ -11,8 +11,7 @@ class ChatMessage(ImmutableModel):
 
     role: Role = Field(
         description=(
-            "Who wrote the message: 'system' for standing instructions, 'user' for the "
-            "question or task, 'assistant' for an earlier reply from the model."
+            "Who wrote the message: 'system' for standing instructions, 'user' for the question or task, 'assistant' for an earlier reply from the model."
         ),
         examples=["user"],
     )

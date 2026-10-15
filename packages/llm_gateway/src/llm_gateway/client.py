@@ -214,15 +214,18 @@ class OpenAICompatibleLLM:
         )
         try:
             response = await self._client.post("/chat/completions", json=body)
+        except httpx2.ConnectTimeout as error:
+            raise LLMConnectionError(
+                f"Could not connect to the model server within "
+                f"{self._settings.timeout_seconds:g} seconds. Check that it is running and that LLM_BASE_URL is correct."
+            ) from error
         except httpx2.TimeoutException as error:
             raise LLMTimeoutError(
-                f"The model server did not answer within {self._settings.timeout_seconds:g} "
-                "seconds. A model that is still loading may need a larger LLM_TIMEOUT_SECONDS."
+                f"The model server did not answer within {self._settings.timeout_seconds:g} seconds. A model that is still loading may need a larger LLM_TIMEOUT_SECONDS."
             ) from error
         except httpx2.TransportError as error:
             raise LLMConnectionError(
-                "Could not reach the model server. Check that it is running and that "
-                "LLM_BASE_URL is correct."
+                "Could not reach the model server. Check that it is running and that LLM_BASE_URL is correct."
             ) from error
         except httpx2.DecodingError as error:
             raise LLMResponseError("The model server's reply could not be decoded.") from error
@@ -232,8 +235,7 @@ class OpenAICompatibleLLM:
             data = response.json()
         except ValueError as error:
             raise LLMResponseError(
-                "The reply was not valid JSON. Check that LLM_BASE_URL points at an "
-                "OpenAI-compatible API, usually ending in /v1."
+                "The reply was not valid JSON. Check that LLM_BASE_URL points at an OpenAI-compatible API, usually ending in /v1."
             ) from error
         return parse_completion(data, requested_model=self._settings.model)
 

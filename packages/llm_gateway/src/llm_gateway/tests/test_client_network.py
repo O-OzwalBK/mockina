@@ -33,18 +33,14 @@ def no_proxy_for_local_tests(monkeypatch):
         monkeypatch.delenv(name, raising=False)
 
 
-def settings_for(port: int, timeout_seconds: float = 5.0) -> LLMSettings:
+def settings_for(port: int, timeout_seconds: float = 2.0) -> LLMSettings:
     """Settings that point at a server on this computer, whatever the real environment says.
 
-    Every field is given, because a field left out would still be read from an exported
-    LLM_ variable. `_env_file=None` only switches off the .env file.
+    Every field is given, because a field left out would still be read from an exported LLM_ variable. `_env_file=None` only switches off the .env file.
 
-    The default timeout is long on purpose. Linux and macOS refuse a connection to a closed
-    port at once, but Windows keeps resending the connection request for a few seconds before
-    it reports the refusal. A short timeout would win that race and turn the refusal into a
-    LLMTimeoutError. Tests that want a timeout pass a short one themselves.
+    The default timeout is short, and that is safe. Linux and macOS refuse a connection to a closed port at once, but Windows keeps resending the connection request for a few seconds before it reports the refusal, so a short timeout can end the wait first. The client reports both outcomes as LLMConnectionError, so the test does not depend on the system.
     """
-    # pydantic-settings accepts `_env_file`, but Pylance cannot see it. Silences one rule here.
+    # pydantic-settings accepts `_env_file`, but Pylance cannot see it.
     return LLMSettings(
         _env_file=None,  # pyright: ignore[reportCallIssue]
         base_url=f"http://127.0.0.1:{port}/v1",

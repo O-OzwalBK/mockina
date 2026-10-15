@@ -17,6 +17,7 @@ EXPECTED_PUBLIC_NAMES = {
     "LLMSettings",
     "LLMTimeoutError",
     "OpenAICompatibleLLM",
+    "RetryingLLM",
     "check_context_budget",
     "estimate_prompt_tokens",
     "estimate_tokens",
