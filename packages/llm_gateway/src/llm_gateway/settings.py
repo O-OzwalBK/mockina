@@ -27,8 +27,8 @@ class LLMSettings(BaseSettings):
 
     base_url: str = Field(
         description=(
-            "Address of an OpenAI-compatible API, including the /v1 part. The gateway "
-            "adds /chat/completions to it. A trailing slash is removed."
+            "Address of an OpenAI-compatible API, including the /v1 part."
+            "The gateway adds /chat/completions to it. A trailing slash is removed."
         ),
         min_length=1,
         examples=["http://localhost:11434/v1"],
@@ -41,8 +41,7 @@ class LLMSettings(BaseSettings):
     api_key: SecretStr | None = Field(
         default=None,
         description=(
-            "Secret key for the provider. Leave it unset for local servers that need none. "
-            "It is never shown in logs or in the printed settings."
+            "Secret key for the provider. Locally hosted models need none. It is never shown in logs or in the printed settings."
         ),
         examples=["your-api-key"],
     )
@@ -50,8 +49,7 @@ class LLMSettings(BaseSettings):
         default=8192,
         ge=512,
         description=(
-            "How many tokens the model can handle in one request, prompt and reply together. "
-            "Take it from the model's documentation."
+            "How many tokens the model can handle in one request, prompt and reply together. Take it from the model's documentation."
         ),
         examples=[8192],
     )

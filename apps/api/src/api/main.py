@@ -1,18 +1,289 @@
-from fastapi import FastAPI
+import logging
+import traceback
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
+from time import perf_counter
+from typing import Any, cast
+from urllib.parse import urlparse
 
-app = FastAPI(
-    title="Mockina API",
-    description="Backend for the Mockina AI mock-interview platform.",
-    version="0.1.0",
+from fastapi import Depends, FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from llm_gateway import (
+    LLM,
+    ContextBudgetExceededError,
+    LLMAuthError,
+    LLMConnectionError,
+    LLMError,
+    LLMRateLimitError,
+    LLMRequestError,
+    LLMResponseError,
+    LLMServerError,
+    LLMSettings,
+    LLMTimeoutError,
+    OpenAICompatibleLLM,
+    RetryingLLM,
 )
+from pydantic import ValidationError
+from starlette.middleware.cors import CORSMiddleware
+
+from api.models import CompletionRequest, CompletionResponse, ErrorResponse, ModelInfoResponse
+from api.settings import ApiSettings
+
+logger = logging.getLogger(__name__)
+LLM_ERROR_MAP: dict[type[LLMError], tuple[int, str]] = {
+    ContextBudgetExceededError: (413, "context_too_large"),
+    LLMRateLimitError: (503, "llm_rate_limited"),
+    LLMTimeoutError: (504, "llm_timeout"),
+    LLMConnectionError: (502, "llm_unreachable"),
+    LLMServerError: (502, "llm_server_error"),
+    LLMResponseError: (502, "llm_bad_response"),
+    LLMAuthError: (502, "llm_auth_failed"),
+    LLMRequestError: (502, "llm_rejected_request"),
+}
+
+ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
+    413: {"model": ErrorResponse, "description": "The model context budget was exceeded."},
+    422: {"model": ErrorResponse, "description": "The request body is invalid."},
+    500: {"model": ErrorResponse, "description": "An unexpected API error occurred."},
+    502: {"model": ErrorResponse, "description": "The upstream model request failed."},
+    503: {"model": ErrorResponse, "description": "The upstream model is rate limited."},
+    504: {"model": ErrorResponse, "description": "The upstream model timed out."},
+}
 
 
-@app.get("/", summary="Check API Health", response_description="API is running properly.")
-def health():
-    """
-    Reports that the API is running.
+def get_llm(request: Request) -> LLM:
+    """Return the app-owned model client so tests can replace this dependency."""
+    return cast(LLM, request.app.state.llm)
 
-    Takes no input and does no work, so a client can call it to check
-    that the server is reachable.
-    """
-    return {"status": "healthy"}
+
+def describe_settings_problem(error: ValidationError) -> str:
+    """List invalid LLM setting names and rules without repeating their values."""
+    lines = ["The model settings are not usable, so nothing was sent:"]
+    for problem in error.errors():
+        location = problem["loc"]
+        name = f"LLM_{location[0]}".upper() if location else "LLM settings"
+        message = problem["msg"].removeprefix("Value error, ")
+        lines.append(f"  {name}: {message}")
+    lines.append("Set them in the environment or in .env (see .env.example).")
+    return "\n".join(lines)
+
+
+def create_app(settings: ApiSettings | None = None, llm: LLM | None = None) -> FastAPI:
+    """Build the API with configurable browser settings and an optional test model."""
+    api_settings = settings if settings is not None else ApiSettings()
+
+    @asynccontextmanager
+    async def lifespan(application: FastAPI) -> AsyncGenerator[None, None]:
+        if llm is not None:
+            application.state.llm = llm
+            yield
+            return
+
+        try:
+            # pydantic-settings loads the required values from the environment or .env file.
+            llm_settings = LLMSettings()  # pyright: ignore[reportCallIssue]
+        except ValidationError as error:
+            message = describe_settings_problem(error)
+            logger.critical(message)
+            raise RuntimeError(message) from None
+
+        client = OpenAICompatibleLLM(llm_settings)
+        application.state.llm_settings = llm_settings
+        application.state.llm = RetryingLLM(client, max_retries=llm_settings.max_retries)
+        try:
+            yield
+        finally:
+            await client.aclose()
+
+    app = FastAPI(
+        title="Mockina API",
+        description="Backend for the Mockina AI mock-interview platform.",
+        version="0.1.0",
+        lifespan=lifespan,
+    )
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=list(api_settings.cors_origins),
+        allow_methods=["GET", "POST"],
+        allow_headers=["Content-Type"],
+        allow_credentials=False,
+    )
+
+    @app.get(
+        "/health",
+        summary="Check API health",
+        response_description="The API is running.",
+    )
+    def health() -> dict[str, str]:
+        """Report that the API is reachable without calling the model."""
+        return {"status": "healthy"}
+
+    @app.exception_handler(LLMError)
+    async def llm_error_handler(_: Request, error: LLMError) -> JSONResponse:
+        mapping = LLM_ERROR_MAP.get(type(error))
+        if mapping is None:
+            status_code, code = 500, "internal_error"
+            message = "An unexpected model error occurred."
+        else:
+            status_code, code = mapping
+            message = str(error)
+
+        details: dict[str, object] = {}
+        if isinstance(error, ContextBudgetExceededError):
+            if error.estimated_tokens is not None:
+                details["estimated_tokens"] = error.estimated_tokens
+            if error.budget_tokens is not None:
+                details["budget_tokens"] = error.budget_tokens
+        headers = None
+        if isinstance(error, LLMRateLimitError) and error.retry_after is not None:
+            headers = {"Retry-After": str(error.retry_after)}
+        return JSONResponse(
+            status_code=status_code,
+            headers=headers,
+            content={
+                "error": {
+                    "code": code,
+                    "message": message,
+                    "retryable": error.retryable,
+                    "details": details,
+                }
+            },
+        )
+
+    @app.exception_handler(RequestValidationError)
+    async def request_validation_error_handler(
+        _: Request, error: RequestValidationError
+    ) -> JSONResponse:
+        validation_errors = [
+            {"loc": item["loc"], "msg": item["msg"], "type": item["type"]}
+            for item in error.errors()
+        ]
+        return JSONResponse(
+            status_code=422,
+            content={
+                "error": {
+                    "code": "invalid_request",
+                    "message": "The request body is invalid.",
+                    "retryable": False,
+                    "details": {"errors": validation_errors},
+                }
+            },
+        )
+
+    @app.middleware("http")
+    async def unexpected_error_middleware(request: Request, call_next):
+        try:
+            return await call_next(request)
+        except Exception as error:
+            stack = "".join(traceback.format_tb(error.__traceback__))
+            logger.error("Unhandled API exception (%s)\n%s", type(error).__name__, stack)
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "error": {
+                        "code": "internal_error",
+                        "message": "An unexpected server error occurred.",
+                        "retryable": False,
+                        "details": {},
+                    }
+                },
+            )
+
+    if api_settings.dev_routes:
+
+        @app.post(
+            "/v1/dev/complete",
+            summary="Complete a model conversation",
+            response_description="The model reply and provider-reported usage.",
+            response_model=CompletionResponse,
+            responses=ERROR_RESPONSES,
+        )
+        async def complete(
+            request_body: CompletionRequest,
+            request: Request,
+            llm: LLM = Depends(get_llm),
+        ) -> CompletionResponse:
+            """Pass the supplied messages to the configured model and return its reply."""
+            started = perf_counter()
+            llm_settings = getattr(request.app.state, "llm_settings", None)
+            configured_model = getattr(llm_settings, "model", "injected")
+            try:
+                completion = await llm.complete(
+                    request_body.messages,
+                    temperature=request_body.temperature,
+                    max_output_tokens=request_body.max_output_tokens,
+                )
+            except LLMError as error:
+                elapsed_ms = int((perf_counter() - started) * 1000)
+                logger.info(
+                    "model_call outcome=%s model=%s elapsed_ms=%d "
+                    "prompt_tokens=unknown completion_tokens=unknown",
+                    type(error).__name__,
+                    configured_model,
+                    elapsed_ms,
+                )
+                raise
+            except Exception as error:
+                elapsed_ms = int((perf_counter() - started) * 1000)
+                logger.info(
+                    "model_call outcome=%s model=%s elapsed_ms=%d "
+                    "prompt_tokens=unknown completion_tokens=unknown",
+                    type(error).__name__,
+                    configured_model,
+                    elapsed_ms,
+                )
+                raise
+
+            elapsed_ms = int((perf_counter() - started) * 1000)
+            logger.info(
+                "model_call outcome=ok model=%s elapsed_ms=%d prompt_tokens=%s "
+                "completion_tokens=%s",
+                completion.model,
+                elapsed_ms,
+                completion.prompt_tokens,
+                completion.completion_tokens,
+            )
+            return CompletionResponse(
+                text=completion.text,
+                model=completion.model,
+                finish_reason=completion.finish_reason,
+                prompt_tokens=completion.prompt_tokens,
+                completion_tokens=completion.completion_tokens,
+                elapsed_ms=elapsed_ms,
+            )
+
+        @app.get(
+            "/v1/dev/model",
+            summary="Show configured model details",
+            response_description="Non-secret details about the configured model endpoint.",
+            response_model=ModelInfoResponse,
+            responses={503: ERROR_RESPONSES[503]},
+        )
+        def model_info(request: Request) -> ModelInfoResponse | JSONResponse:
+            """Return model limits and provider host without exposing the API key."""
+            llm_settings = getattr(request.app.state, "llm_settings", None)
+            if llm_settings is None:
+                return JSONResponse(
+                    status_code=503,
+                    content={
+                        "error": {
+                            "code": "model_not_configured",
+                            "message": "Model settings are unavailable for an injected model.",
+                            "retryable": False,
+                            "details": {},
+                        }
+                    },
+                )
+            return ModelInfoResponse(
+                model=llm_settings.model,
+                host=urlparse(llm_settings.base_url).netloc.rsplit("@", maxsplit=1)[-1],
+                context_tokens=llm_settings.context_tokens,
+                max_output_tokens=llm_settings.max_output_tokens,
+                api_key_set=llm_settings.api_key is not None,
+            )
+
+    return app
+
+
+app = create_app()

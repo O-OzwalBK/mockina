@@ -1,1 +1,48 @@
-GET http://127.0.0.1:8000
+@baseUrl = http://127.0.0.1:8000
+
+### Health
+GET {{baseUrl}}/health
+
+### Configured model (never returns the API key)
+GET {{baseUrl}}/v1/dev/model
+
+### Complete a conversation
+POST {{baseUrl}}/v1/dev/complete
+Content-Type: application/json
+
+{
+	"messages": [
+		{"role": "user", "content": "Say hello in one short sentence."}
+	]
+}
+
+### Exceed the context budget before contacting the provider (match context_tokens from /model)
+POST {{baseUrl}}/v1/dev/complete
+Content-Type: application/json
+
+{
+	"messages": [
+		{"role": "user", "content": "Say hello."}
+	],
+	"max_output_tokens": 8192
+}
+
+### Bad provider key (restart the API with a deliberately invalid LLM_API_KEY first)
+POST {{baseUrl}}/v1/dev/complete
+Content-Type: application/json
+
+{
+	"messages": [
+		{"role": "user", "content": "Say hello."}
+	]
+}
+
+### Provider unavailable (restart the API with LLM_BASE_URL=http://127.0.0.1:1/v1 first)
+POST {{baseUrl}}/v1/dev/complete
+Content-Type: application/json
+
+{
+	"messages": [
+		{"role": "user", "content": "Say hello."}
+	]
+}
