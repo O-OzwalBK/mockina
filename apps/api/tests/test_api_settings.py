@@ -32,7 +32,7 @@ def build_settings() -> ApiSettings:
 
 def test_field_list_is_not_empty():
     """Guard: FIELD_NAMES must have at least one entry, or the test below checks nothing."""
-    assert FIELD_NAMES # pyright: ignore[reportAssertAlwaysTrue]
+    assert FIELD_NAMES  # pyright: ignore[reportAssertAlwaysTrue]
 
 
 def test_defaults_are_safe_for_local_development():
