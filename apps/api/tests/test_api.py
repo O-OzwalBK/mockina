@@ -302,21 +302,25 @@ def test_unexpected_error_is_generic_and_does_not_log_exception_text(
     caplog: pytest.LogCaptureFixture,
 ):
     """Unexpected failures return a generic body and redact exception text from logs."""
+
     marker = "private-prompt-marker"
     caplog.set_level(logging.ERROR, logger="api.main")
+
     with TestClient(
-        build_app(FakeLLM(ValueError(marker))), raise_server_exceptions=False
+        build_app(FakeLLM(ValueError(marker))),
+        raise_server_exceptions=False
     ) as client:
         response = client.post(
             "/v1/dev/complete",
+            headers={"Origin": "http://localhost:5173"},
             json={"messages": [{"role": "user", "content": marker}]},
         )
 
     assert response.status_code == 500
+    assert response.headers["access-control-allow-origin"] == "http://localhost:5173"
     assert response.json()["error"]["code"] == "internal_error"
     assert marker not in response.text
     assert marker not in caplog.text
-
 
 def test_bad_llm_settings_fail_startup_without_logging_values(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture

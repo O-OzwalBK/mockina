@@ -102,6 +102,26 @@ def create_app(settings: ApiSettings | None = None, llm: LLM | None = None) -> F
         version="0.1.0",
         lifespan=lifespan,
     )
+
+    @app.middleware("http")
+    async def unexpected_error_middleware(request: Request, call_next):
+        try:
+            return await call_next(request)
+        except Exception as error:
+            stack = "".join(traceback.format_tb(error.__traceback__))
+            logger.error("Unhandled API exception (%s)\n%s", type(error).__name__, stack)
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "error": {
+                        "code": "internal_error",
+                        "message": "An unexpected server error occurred.",
+                        "retryable": False,
+                        "details": {},
+                    }
+                },
+            )
+
     app.add_middleware(
         CORSMiddleware,
         allow_origins=list(api_settings.cors_origins),
@@ -170,25 +190,6 @@ def create_app(settings: ApiSettings | None = None, llm: LLM | None = None) -> F
                 }
             },
         )
-
-    @app.middleware("http")
-    async def unexpected_error_middleware(request: Request, call_next):
-        try:
-            return await call_next(request)
-        except Exception as error:
-            stack = "".join(traceback.format_tb(error.__traceback__))
-            logger.error("Unhandled API exception (%s)\n%s", type(error).__name__, stack)
-            return JSONResponse(
-                status_code=500,
-                content={
-                    "error": {
-                        "code": "internal_error",
-                        "message": "An unexpected server error occurred.",
-                        "retryable": False,
-                        "details": {},
-                    }
-                },
-            )
 
     if api_settings.dev_routes:
 
