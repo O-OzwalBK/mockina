@@ -337,6 +337,7 @@ def test_openapi_documents_dev_routes_and_error_responses():
 
 def test_model_call_log_does_not_contain_prompt_or_key(caplog: pytest.LogCaptureFixture):
     """The model-call log records outcome metadata without prompt or key values."""
+
     prompt_marker = "private-prompt-marker"
     key_marker = "private-key-marker"
     caplog.set_level(logging.INFO, logger="api.main")
@@ -382,6 +383,7 @@ def test_bad_llm_settings_fail_startup_without_logging_values(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ):
     """Invalid model settings fail startup while diagnostics show names, not values."""
+
     with pytest.raises(ValidationError) as captured:
         LLMSettings(_env_file=None, base_url="not-a-url", model="test-model")  # pyright: ignore[reportCallIssue]
     settings_error = captured.value
@@ -399,3 +401,15 @@ def test_bad_llm_settings_fail_startup_without_logging_values(
     assert "LLM_BASE_URL" in caplog.text
     assert "not-a-url" not in caplog.text
     assert "not-a-url" not in str(startup_error.value)
+    assert "the API cannot start" in str(startup_error.value)
+
+
+def test_openapi_describes_the_model_info_503_as_missing_configuration():
+    """The model-info 503 is documented as 'no model settings', not as an upstream rate limit."""
+
+    with TestClient(build_app(FakeLLM("unused"))) as client:
+        schema = client.get("/openapi.json").json()
+
+    description = schema["paths"]["/v1/dev/model"]["get"]["responses"]["503"]["description"]
+    assert "settings" in description
+    assert "rate limit" not in description

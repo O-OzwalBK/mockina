@@ -57,23 +57,34 @@ ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
 
 def get_llm(request: Request) -> LLM:
     """Return the app-owned model client so tests can replace this dependency."""
+
     return cast(LLM, request.app.state.llm)
 
 
 def describe_settings_problem(error: ValidationError) -> str:
     """List invalid LLM setting names and rules without repeating their values."""
-    lines = ["The model settings are not usable, so nothing was sent:"]
+
+    lines = ["The model settings are not usable, so the API cannot start:"]
+
     for problem in error.errors():
         location = problem["loc"]
         name = f"LLM_{location[0]}".upper() if location else "LLM settings"
         message = problem["msg"].removeprefix("Value error, ")
         lines.append(f"  {name}: {message}")
+
     lines.append("Set them in the environment or in .env (see .env.example).")
     return "\n".join(lines)
 
 
 def create_app(settings: ApiSettings | None = None, llm: LLM | None = None) -> FastAPI:
-    """Build the API with configurable browser settings and an optional test model."""
+    """Build the API with configurable browser settings and an optional test model.
+
+    `settings` holds the API's own options (CORS origins, dev routes). When it is None they are
+    read from the environment and .env, even if `llm` is given, so tests pass `settings`.
+     `llm` replaces the real model: when it is given, the model settings (LLM_*) are not read
+    at all and no network client is built.
+    """
+
     api_settings = settings if settings is not None else ApiSettings()
 
     @asynccontextmanager
@@ -290,7 +301,12 @@ def create_app(settings: ApiSettings | None = None, llm: LLM | None = None) -> F
             summary="Show configured model details",
             response_description="Non-secret details about the configured model endpoint.",
             response_model=ModelInfoResponse,
-            responses={503: ERROR_RESPONSES[503]},
+            responses={
+                503: {
+                    "model": ErrorResponse,
+                    "description": "No model settings are available: a test model was injected.",
+                }
+            },
         )
         def model_info(request: Request) -> ModelInfoResponse | JSONResponse:
             """Return model limits and provider host without exposing the API key."""

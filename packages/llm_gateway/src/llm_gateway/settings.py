@@ -27,8 +27,7 @@ class LLMSettings(BaseSettings):
 
     base_url: str = Field(
         description=(
-            "Address of an OpenAI-compatible API, including the /v1 part."
-            "The gateway adds /chat/completions to it. A trailing slash is removed."
+            "Address of an OpenAI-compatible API, including the /v1 part. The gateway adds /chat/completions to it. A trailing slash is removed."
         ),
         min_length=1,
         examples=["http://localhost:11434/v1"],
