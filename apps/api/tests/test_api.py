@@ -177,16 +177,34 @@ def test_every_exported_llm_error_has_a_mapping():
     assert exported_errors == set(LLM_ERROR_MAP)
 
 
-def test_rate_limit_retry_after_is_returned():
-    """An upstream retry delay is passed back in the Retry-After header."""
-    with TestClient(build_app(FakeLLM(LLMRateLimitError("busy", retry_after=2.5)))) as client:
+@pytest.mark.parametrize(
+    ("retry_after", "header"), [(2.5, "3"), (30.0, "30"), (0.2, "1"), (0.0, "0")]
+)
+def test_rate_limit_retry_after_is_whole_seconds_rounded_up(retry_after, header):
+    """An upstream retry delay is passed back in the Retry-After header and is rounded up before sending as whole seconds, so a client never retries too early."""
+
+    error = LLMRateLimitError("busy", retry_after=retry_after)
+    with TestClient(build_app(FakeLLM(error))) as client:
         response = client.post(
             "/v1/dev/complete",
             json={"messages": [{"role": "user", "content": "test"}]},
         )
 
     assert response.status_code == 503
-    assert response.headers["Retry-After"] == "2.5"
+    assert response.headers["Retry-After"] == header
+
+
+def test_rate_limit_without_the_provider_sending_delay_sends_no_retry_after_header_to_client():
+    """When the provider gave no delay, the response has no Retry-After header at all."""
+    
+    with TestClient(build_app(FakeLLM(LLMRateLimitError("busy")))) as client:
+        response = client.post(
+            "/v1/dev/complete",
+            json={"messages": [{"role": "user", "content": "test"}]},
+        )
+
+    assert response.status_code == 503
+    assert "Retry-After" not in response.headers
 
 
 def test_cors_preflight_allows_configured_origin():

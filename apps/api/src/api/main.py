@@ -1,4 +1,5 @@
 import logging
+import math
 import traceback
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
@@ -159,7 +160,8 @@ def create_app(settings: ApiSettings | None = None, llm: LLM | None = None) -> F
                 details["budget_tokens"] = error.budget_tokens
         headers = None
         if isinstance(error, LLMRateLimitError) and error.retry_after is not None:
-            headers = {"Retry-After": str(error.retry_after)}
+            headers = {"Retry-After": str(math.ceil(error.retry_after))}
+            
         return JSONResponse(
             status_code=status_code,
             headers=headers,
