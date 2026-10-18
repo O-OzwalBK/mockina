@@ -36,6 +36,7 @@ def test_health_route_does_not_need_the_model():
 
 def build_app(llm: FakeLLM, *, dev_routes: bool = True):
     """Build an API with no environment reads and the developer routes enabled by default."""
+
     settings = ApiSettings(_env_file=None, dev_routes=dev_routes)  # pyright: ignore[reportCallIssue]
     return create_app(settings=settings, llm=llm)
 
@@ -221,8 +222,9 @@ def test_cors_preflight_rejects_unconfigured_origin():
     assert "access-control-allow-origin" not in response.headers
 
 
-def test_dev_routes_are_absent_when_disabled():
-    """Disabling developer routes removes them from both routing and OpenAPI."""
+def test_dev_routes_are_absent_when_disabled_and_uses_the_shared_error():
+    """Disabling developer routes removes them from both routing and gives the shared 404 error."""
+
     with TestClient(build_app(FakeLLM("unused"), dev_routes=False)) as client:
         response = client.post(
             "/v1/dev/complete",
@@ -231,8 +233,44 @@ def test_dev_routes_are_absent_when_disabled():
         schema = client.get("/openapi.json").json()
 
     assert response.status_code == 404
+    assert response.json()["error"]["code"] == "not_found"
     assert "/v1/dev/complete" not in schema["paths"]
     assert "/v1/dev/model" not in schema["paths"]
+
+
+def test_unknown_path_uses_shared_error_shape():
+    """An unknown path gets the shared 404 error envelope, not FastAPI's {"detail": ...}."""
+
+    with TestClient(build_app(FakeLLM())) as client:
+        response = client.get("/no-such-route")
+
+    assert response.status_code == 404
+    assert response.json() == {
+        "error": {
+            "code": "not_found",
+            "message": "Not Found",
+            "retryable": False,
+            "details": {},
+        }
+    }
+
+
+def test_wrong_method_uses_shared_error_shape_and_keeps_the_allow_header():
+    """A wrong method on a route that exists returns the shared 405 envelope and preserves Allow."""
+
+    with TestClient(build_app(FakeLLM())) as client:
+        response = client.get("/v1/dev/complete")
+
+    assert response.status_code == 405
+    assert response.headers["Allow"] == "POST"
+    assert response.json() == {
+        "error": {
+            "code": "method_not_allowed",
+            "message": "Method Not Allowed",
+            "retryable": False,
+            "details": {},
+        }
+    }
 
 
 def test_model_info_reports_host_and_limits_without_the_key(monkeypatch: pytest.MonkeyPatch):
@@ -307,8 +345,7 @@ def test_unexpected_error_is_generic_and_does_not_log_exception_text(
     caplog.set_level(logging.ERROR, logger="api.main")
 
     with TestClient(
-        build_app(FakeLLM(ValueError(marker))),
-        raise_server_exceptions=False
+        build_app(FakeLLM(ValueError(marker))), raise_server_exceptions=False
     ) as client:
         response = client.post(
             "/v1/dev/complete",
@@ -321,6 +358,7 @@ def test_unexpected_error_is_generic_and_does_not_log_exception_text(
     assert response.json()["error"]["code"] == "internal_error"
     assert marker not in response.text
     assert marker not in caplog.text
+
 
 def test_bad_llm_settings_fail_startup_without_logging_values(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture

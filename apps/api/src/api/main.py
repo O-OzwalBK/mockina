@@ -2,6 +2,7 @@ import logging
 import traceback
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from http import HTTPStatus
 from time import perf_counter
 from typing import Any, cast
 from urllib.parse import urlparse
@@ -25,6 +26,7 @@ from llm_gateway import (
     RetryingLLM,
 )
 from pydantic import ValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.cors import CORSMiddleware
 
 from api.models import CompletionRequest, CompletionResponse, ErrorResponse, ModelInfoResponse
@@ -187,6 +189,33 @@ def create_app(settings: ApiSettings | None = None, llm: LLM | None = None) -> F
                     "message": "The request body is invalid.",
                     "retryable": False,
                     "details": {"errors": validation_errors},
+                }
+            },
+        )
+
+    @app.exception_handler(StarletteHTTPException)
+    async def http_exception_handler(_: Request, error: StarletteHTTPException) -> JSONResponse:
+
+        codes = {
+            404: "not_found",
+            405: "method_not_allowed",
+        }
+        code = codes.get(error.status_code, "http_error")
+
+        try:
+            message = HTTPStatus(error.status_code).phrase
+        except ValueError:
+            message = "HTTP error"
+
+        return JSONResponse(
+            status_code=error.status_code,
+            headers=error.headers,
+            content={
+                "error": {
+                    "code": code,
+                    "message": message,
+                    "retryable": False,
+                    "details": {},
                 }
             },
         )
