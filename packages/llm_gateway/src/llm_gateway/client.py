@@ -212,8 +212,29 @@ class OpenAICompatibleLLM:
             temperature=temperature,
             max_output_tokens=max_output_tokens,
         )
+
+        response = await self._send("POST", "/chat/completions", json=body)
+        raise_for_error_status(response)
+
         try:
-            response = await self._client.post("/chat/completions", json=body)
+            data = response.json()
+        except ValueError as error:
+            raise LLMResponseError(
+                "The reply was not valid JSON. Check that LLM_BASE_URL points at an OpenAI-compatible API, usually ending in /v1."
+            ) from error
+        return parse_completion(data, requested_model=self._settings.model)
+
+    async def _send(self, method: str, path: str, *, json: Any = None) -> httpx2.Response:
+        """Send one request and return the reply, turning every network failure into an LLMError.
+
+        complete() and list_models() both go through here, so a failure is reported the same
+        way whichever one you call, and the wording lives in one place. The order of the
+        `except` clauses matters: httpx2 raises the most specific error class it has, and
+        Python uses the first clause that matches, so the narrow ones come first.
+        """
+
+        try:
+            return await self._client.request(method, path, json=json)
         except httpx2.ConnectTimeout as error:
             raise LLMConnectionError(
                 f"Could not connect to the model server within "
@@ -230,15 +251,6 @@ class OpenAICompatibleLLM:
         except httpx2.DecodingError as error:
             raise LLMResponseError("The model server's reply could not be decoded.") from error
 
-        raise_for_error_status(response)
-        try:
-            data = response.json()
-        except ValueError as error:
-            raise LLMResponseError(
-                "The reply was not valid JSON. Check that LLM_BASE_URL points at an OpenAI-compatible API, usually ending in /v1."
-            ) from error
-        return parse_completion(data, requested_model=self._settings.model)
-
     async def aclose(self) -> None:
         """Release the network connections held by this client."""
         await self._client.aclose()
@@ -252,14 +264,7 @@ class OpenAICompatibleLLM:
     async def list_models(self) -> list[str]:
         """Return model IDs reported by the OpenAI-compatible provider."""
 
-        try:
-            response = await self._client.get("/models")
-        except httpx2.ConnectTimeout as error:
-            raise LLMConnectionError(
-                f"Could not connect to the model server within "
-                f"{self._settings.timeout_seconds:g} seconds. Check that is running and that LLM_BASE_URL is correct."
-            ) from error
-
+        response = await self._send("GET", "/models")
         raise_for_error_status(response)
 
         try:
@@ -269,7 +274,10 @@ class OpenAICompatibleLLM:
 
         entries = payload.get("data") if isinstance(payload, dict) else None
         if not isinstance(entries, list):
-            raise
+            raise LLMResponseError(
+                "The model list reply had no 'data' list. Check that LLM_BASE_URL points at "
+                "an OpenAI-compatible API, usually ending in /v1."
+            )
 
         model_ids: list[str] = []
         for entry in entries:

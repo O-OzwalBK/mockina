@@ -196,7 +196,7 @@ def test_rate_limit_retry_after_is_whole_seconds_rounded_up(retry_after, header)
 
 def test_rate_limit_without_the_provider_sending_delay_sends_no_retry_after_header_to_client():
     """When the provider gave no delay, the response has no Retry-After header at all."""
-    
+
     with TestClient(build_app(FakeLLM(LLMRateLimitError("busy")))) as client:
         response = client.post(
             "/v1/dev/complete",

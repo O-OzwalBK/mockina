@@ -350,6 +350,53 @@ def test_provider_free_text_never_reaches_the_error_message():
     assert secret not in str(caught.value)
 
 
+# --- list_models ---
+
+
+@pytest.mark.anyio
+async def test_list_models_returns_the_ids_the_provider_reports():
+    """list_models asks GET /models under the base URL and returns each model's id in order."""
+    seen: list[httpx2.Request] = []
+
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        seen.append(request)
+        return httpx2.Response(200, json={"data": [{"id": "model-a"}, {"id": "model-b"}]})
+
+    async with make_llm(handler) as llm:
+        assert await llm.list_models() == ["model-a", "model-b"]
+    assert seen[0].method == "GET"
+    assert str(seen[0].url) == "http://models.test/v1/models"
+
+
+@pytest.mark.anyio
+async def test_list_models_reply_without_a_data_list_raises_llm_response_error():
+    """A JSON reply with no 'data' list is an LLMResponseError, not a crash of another kind."""
+    llm = make_llm(lambda request: httpx2.Response(200, json={"unexpected": True}))
+    with pytest.raises(LLMResponseError):
+        await llm.list_models()
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("raised", "expected"),
+    [
+        (httpx2.ConnectError, LLMConnectionError),
+        (httpx2.ConnectTimeout, LLMConnectionError),
+        (httpx2.ReadTimeout, LLMTimeoutError),
+        (httpx2.DecodingError, LLMResponseError),
+    ],
+)
+async def test_list_models_turns_network_failures_into_llm_errors(raised, expected):
+    """list_models reports every failure to reach the server as an LLMError, like complete does."""
+
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        raise raised("failure", request=request)
+
+    llm = make_llm(handler)
+    with pytest.raises(expected):
+        await llm.list_models()
+
+
 # --- OpenAICompatibleLLM ---
 
 
