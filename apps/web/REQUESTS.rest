@@ -1,0 +1,141 @@
+@baseUrl = http://127.0.0.1:8000
+@token = {{createIdentity.response.body.$.token}}
+@preparationId = {{createPreparation.response.body.$.id}}
+@presetId = junior-react-developer
+@sessionId = {{createSession.response.body.$.id}}
+@questionId = {{getNextTurn.response.body.$.question.id}}
+
+### Health
+GET {{baseUrl}}/health
+
+### Capabilities and live limits
+GET {{baseUrl}}/v1/capabilities
+
+### Create anonymous identity
+# @name createIdentity
+POST {{baseUrl}}/v1/identity
+
+### Delete identity and all owned data
+DELETE {{baseUrl}}/v1/identity
+Authorization: Bearer {{token}}
+
+### List job presets
+GET {{baseUrl}}/v1/job-presets
+
+### Search job presets
+GET {{baseUrl}}/v1/job-presets?q=react&category=frontend
+
+### Get one job preset
+GET {{baseUrl}}/v1/job-presets/{{presetId}}
+
+### Create preparation
+# @name createPreparation
+POST {{baseUrl}}/v1/preparations
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "job_title": "Junior React Developer",
+  "job_description": "We are looking for a junior developer with React experience.",
+  "resume": "Built a task tracker with React and TypeScript."
+}
+
+### List preparations
+GET {{baseUrl}}/v1/preparations
+Authorization: Bearer {{token}}
+
+### Get preparation
+GET {{baseUrl}}/v1/preparations/{{preparationId}}
+Authorization: Bearer {{token}}
+
+### Update preparation (only before its first session)
+PATCH {{baseUrl}}/v1/preparations/{{preparationId}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "job_title": "Frontend Developer",
+  "job_description": "Build accessible web applications with React."
+}
+
+### Delete preparation and its sessions
+DELETE {{baseUrl}}/v1/preparations/{{preparationId}}
+Authorization: Bearer {{token}}
+
+### Start session (does not ask the first question)
+# @name createSession
+POST {{baseUrl}}/v1/preparations/{{preparationId}}/sessions
+Authorization: Bearer {{token}}
+
+### List sessions for a preparation
+GET {{baseUrl}}/v1/preparations/{{preparationId}}/sessions
+Authorization: Bearer {{token}}
+
+### Get session and turns
+GET {{baseUrl}}/v1/sessions/{{sessionId}}
+Authorization: Bearer {{token}}
+
+### Ask for next turn (returns existing open question when present)
+# @name getNextTurn
+POST {{baseUrl}}/v1/sessions/{{sessionId}}/turns
+Authorization: Bearer {{token}}
+
+### Submit answer for a question
+PUT {{baseUrl}}/v1/sessions/{{sessionId}}/turns/{{questionId}}/answer
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "transcript": "React re-renders when state or props change.",
+  "words": [
+    { "word": "React", "start": 0.12, "end": 0.48 },
+    { "word": "re-renders", "start": 0.55, "end": 1.1 }
+  ],
+  "duration": 41.2
+}
+
+### Retry grading for a failed turn
+POST {{baseUrl}}/v1/sessions/{{sessionId}}/turns/{{questionId}}/regrade
+Authorization: Bearer {{token}}
+
+### Complete session
+POST {{baseUrl}}/v1/sessions/{{sessionId}}/complete
+Authorization: Bearer {{token}}
+
+### Abandon session
+POST {{baseUrl}}/v1/sessions/{{sessionId}}/abandon
+Authorization: Bearer {{token}}
+
+### Get grading event stream
+GET {{baseUrl}}/v1/sessions/{{sessionId}}/events
+Authorization: Bearer {{token}}
+Accept: text/event-stream
+
+### Get grading status (polling fallback)
+GET {{baseUrl}}/v1/sessions/{{sessionId}}/status
+Authorization: Bearer {{token}}
+
+### Get progress for all preparations
+GET {{baseUrl}}/v1/progress
+Authorization: Bearer {{token}}
+
+### Get progress for one preparation
+GET {{baseUrl}}/v1/progress?preparation_id={{preparationId}}
+Authorization: Bearer {{token}}
+
+### Get configured development model (dev routes only)
+GET {{baseUrl}}/v1/dev/model
+Authorization: Bearer {{token}}
+
+### Send development completion request (dev routes only)
+POST {{baseUrl}}/v1/dev/complete
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "messages": [
+    { "role": "user", "content": "Say hello in one short sentence." }
+  ],
+  "temperature": 0.2,
+  "max_output_tokens": 256
+}
