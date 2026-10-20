@@ -1,6 +1,6 @@
 import type { ApiErrorEnvelope, ValidationIssue } from "./types";
 
-const ERROR_MESSAGES: Record<string, string> = {
+const ERROR_MESSAGES = {
   invalid_request:
     "Some information is invalid. Check the fields and try again.",
   network_error:
@@ -30,24 +30,26 @@ const ERROR_MESSAGES: Record<string, string> = {
   model_not_configured: "The model is not configured on this server.",
   method_not_allowed: "This action is not supported by the server.",
   http_error: "The server could not complete this request.",
-};
+} as const;
+
+export type ApiErrorCode = keyof typeof ERROR_MESSAGES;
 
 /** A safe, structured error for API failures; server messages are never shown to users. */
 export class ApiError extends Error {
-  readonly code: string;
+  readonly code: ApiErrorCode;
   readonly status: number;
   readonly retryable: boolean;
   readonly details: Record<string, unknown>;
   readonly retryAfterSeconds: number | null;
 
   constructor(
-    code: string,
+    code: ApiErrorCode,
     status: number,
     retryable: boolean,
     details: Record<string, unknown>,
     retryAfterSeconds: number | null,
   ) {
-    super(ERROR_MESSAGES[code] ?? ERROR_MESSAGES.http_error);
+    super(ERROR_MESSAGES[code]);
     this.name = "ApiError";
     this.code = code;
     this.status = status;
@@ -73,7 +75,8 @@ export async function errorFromResponse(response: Response): Promise<ApiError> {
   let envelope: ApiErrorEnvelope | undefined;
   try {
     envelope = (await response.json()) as ApiErrorEnvelope;
-  } catch {
+  } catch (error) {
+    if (isAbortError(error)) throw error;
     envelope = undefined;
   }
 
@@ -82,7 +85,7 @@ export async function errorFromResponse(response: Response): Promise<ApiError> {
   const retryAfterSeconds = parseRetryAfter(retryAfter);
 
   return new ApiError(
-    typeof error?.code === "string" ? error.code : "http_error",
+    isApiErrorCode(error?.code) ? error.code : "http_error",
     response.status,
     typeof error?.retryable === "boolean"
       ? error.retryable
@@ -90,6 +93,19 @@ export async function errorFromResponse(response: Response): Promise<ApiError> {
     isRecord(error?.details) ? error.details : {},
     retryAfterSeconds,
   );
+}
+
+function isAbortError(error: unknown): error is Error {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "name" in error &&
+    error.name === "AbortError"
+  );
+}
+
+export function isApiErrorCode(value: unknown): value is ApiErrorCode {
+  return typeof value === "string" && Object.hasOwn(ERROR_MESSAGES, value);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

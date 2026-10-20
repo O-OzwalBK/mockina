@@ -8,6 +8,7 @@ import type {
   DevModelInfo,
   GradingStatus,
   Identity,
+  InterviewSession,
   JobPreset,
   JobPresetSummary,
   Preparation,
@@ -81,7 +82,7 @@ export const deletePreparation = (preparationId: string): Promise<void> =>
 /** Starts a session without asking its first question. */
 export const createSession = (
   preparationId: string,
-): Promise<import("./generated/InterviewSession").InterviewSession> =>
+): Promise<InterviewSession> =>
   request(`/v1/preparations/${encode(preparationId)}/sessions`, {
     method: "POST",
   });
@@ -95,7 +96,7 @@ export const getPreparationSessions = (
 /** Reads a session and all of its turns. */
 export const getSession = (
   sessionId: string,
-): Promise<import("./generated/InterviewSession").InterviewSession> =>
+): Promise<InterviewSession> =>
   request(`/v1/sessions/${encode(sessionId)}`);
 
 /** Requests the next question, or the existing open question when one exists. */
@@ -137,8 +138,11 @@ export const abandonSession = (sessionId: string): Promise<SessionSummary> =>
   request(`/v1/sessions/${encode(sessionId)}/abandon`, { method: "POST" });
 
 /** Opens the authenticated grading event stream. */
-export const getSessionEvents = (sessionId: string): Promise<Response> =>
-  requestStream(`/v1/sessions/${encode(sessionId)}/events`);
+export const getSessionEvents = (
+  sessionId: string,
+  signal?: AbortSignal,
+): Promise<Response> =>
+  requestStream(`/v1/sessions/${encode(sessionId)}/events`, signal);
 
 /** Reads grading statuses without loading answer transcripts or timings. */
 export const getSessionStatus = (sessionId: string): Promise<GradingStatus> =>
