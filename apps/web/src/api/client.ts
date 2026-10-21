@@ -136,8 +136,11 @@ function isIdentity(value: unknown): value is Identity {
 }
 
 function requiresAuthentication(path: string, method = "GET"): boolean {
-  const pathname = new URL(path, getApiBaseUrl() || "http://localhost")
-    .pathname;
+  // Extract the pathname from the URL
+  // before: const pathname = new URL(path, getApiBaseUrl() || "http://localhost").pathname;
+  // Only the path matters, so any fixed absolute base will do.
+  // The configured base can be relative (e.g. "/api"), which makes new URL() throw "Invalid URL".
+  const { pathname } = new URL(path, "http://localhost");
   if (pathname === "/health" || pathname === "/v1/capabilities") return false;
   if (pathname === "/v1/identity") return method.toUpperCase() !== "POST";
   if (pathname === "/v1/job-presets" || pathname.startsWith("/v1/job-presets/"))
