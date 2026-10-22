@@ -84,7 +84,7 @@ export async function request<T>(
   try {
     response = await fetch(`${getApiBaseUrl()}${path}`, { ...init, headers });
   } catch (error) {
-    if (isAbortError(error)) throw error;
+    if (isCallerCancellation(error, init.signal)) throw error;
     throw createNetworkError();
   }
 
@@ -92,13 +92,18 @@ export async function request<T>(
   if (!response.ok) throw await errorFromResponse(response);
   if (response.status === 204) return undefined as T;
 
+  let body: string;
   try {
-    const body = await response.text();
-    if (!body.trim()) return undefined as T;
+    body = await response.text();
+  } catch (error) {
+    if (isCallerCancellation(error, init.signal)) throw error;
+    throw createNetworkError(); // the conection dropped while the body was arriving
+  }
+  if (!body.trim()) return undefined as T;
+  try {
     return JSON.parse(body) as T;
   } catch (error) {
-    if (isAbortError(error)) throw error;
-    throw new ApiError("http_error", response.status, false, {}, null);
+    throw new ApiError("http_error", response.status, false, {}, null); // body arrived but isn't a JSON
   }
 }
 
@@ -116,7 +121,7 @@ export async function requestStream(
   try {
     response = await fetch(`${getApiBaseUrl()}${path}`, { headers, signal });
   } catch (error) {
-    if (isAbortError(error)) throw error;
+    if (isCallerCancellation(error, signal)) throw error;
     throw createNetworkError();
   }
 
@@ -148,11 +153,23 @@ function requiresAuthentication(path: string, method = "GET"): boolean {
   return pathname.startsWith("/v1/");
 }
 
-function isAbortError(error: unknown): error is Error {
+function hasName(error: unknown, name: string): boolean {
   return (
     typeof error === "object" &&
     error !== null &&
     "name" in error &&
-    error.name === "AbortError"
+    error.name === name
   );
+}
+
+/**
+ * True when the caller cancelled on purpose (unmount, newer search), whatever reason they gave
+ * to abort(). A timeout is not a cancellation: it is a failure to retry.
+ */
+function isCallerCancellation(
+  error: unknown,
+  signal: AbortSignal | null | undefined,
+): boolean {
+  if (hasName(error, "TimeoutError")) return false; // to make a timeout as retryable
+  return hasName(error, "AbortError") || signal?.aborted === true;
 }
