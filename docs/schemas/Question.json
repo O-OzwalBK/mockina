@@ -43,6 +43,7 @@
     }
   },
   "required": [
+    "id",
     "text",
     "skill_id",
     "difficulty"

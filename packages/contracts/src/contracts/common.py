@@ -27,7 +27,12 @@ class ImmutableModel(BaseModel):
     it skips validation and can produce an invalid model.
     """
 
-    model_config = ConfigDict(frozen=True, extra="forbid", str_strip_whitespace=True)
+    model_config = ConfigDict(
+        frozen=True,
+        extra="forbid",
+        str_strip_whitespace=True,
+        json_schema_serialization_defaults_required=True,
+    )
 
     def updated(self, **changes: Any) -> Self:
         """Return a new, validated copy with the given fields changed.

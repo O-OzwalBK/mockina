@@ -24,6 +24,7 @@ for (const fileName of (await readdir(schemaDirectory)).filter((name) =>
   const typeScript = await compile(schema, schema.title, {
     bannerComment: "/* Generated from docs/schemas. Do not edit by hand. */",
     style: { singleQuote: true },
+    additionalProperties: false,
   });
   const outputName = fileName.replace(/\.json$/, ".ts");
   await writeFile(join(outputDirectory, outputName), typeScript);

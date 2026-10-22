@@ -27,7 +27,6 @@ export interface Evaluation {
   question_id: QuestionId;
   relevance: MetricScore3;
   summary: Summary;
-  [k: string]: unknown;
 }
 /**
  * How clearly and logically the answer is structured.
@@ -35,7 +34,6 @@ export interface Evaluation {
 export interface MetricScore {
   feedback: Feedback;
   score: Score;
-  [k: string]: unknown;
 }
 /**
  * Whether the facts and reasoning in the answer are right.
@@ -43,7 +41,6 @@ export interface MetricScore {
 export interface MetricScore1 {
   feedback: Feedback;
   score: Score;
-  [k: string]: unknown;
 }
 /**
  * How far the answer goes beyond surface-level knowledge.
@@ -51,7 +48,6 @@ export interface MetricScore1 {
 export interface MetricScore2 {
   feedback: Feedback;
   score: Score;
-  [k: string]: unknown;
 }
 /**
  * How well the answer addresses the question and the role.
@@ -59,5 +55,4 @@ export interface MetricScore2 {
 export interface MetricScore3 {
   feedback: Feedback;
   score: Score;
-  [k: string]: unknown;
 }

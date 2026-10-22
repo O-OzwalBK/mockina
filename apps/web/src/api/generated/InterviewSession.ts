@@ -105,13 +105,13 @@ export type UpdatedAt = string;
  * `session.updated(turns=session.turns + (new_turn,))`.
  */
 export interface InterviewSession {
-  ended_at?: EndedAt;
-  id?: Id;
+  ended_at: EndedAt;
+  id: Id;
   preparation_id: PreparationId;
-  started_at?: StartedAt;
-  status?: SessionStatus;
-  turns?: Turns;
-  updated_at?: UpdatedAt;
+  started_at: StartedAt;
+  status: SessionStatus;
+  turns: Turns;
+  updated_at: UpdatedAt;
 }
 /**
  * One question-and-answer exchange in an interview session.
@@ -126,14 +126,14 @@ export interface Turn {
   /**
    * What the user said. Present once the user has answered.
    */
-  answer?: Answer | null;
+  answer: Answer | null;
   /**
    * The grade for the answer. Present only when the status is graded.
    */
-  evaluation?: Evaluation | null;
-  grading_error?: GradingError;
+  evaluation: Evaluation | null;
+  grading_error: GradingError;
   question: Question;
-  status?: TurnStatus;
+  status: TurnStatus;
 }
 /**
  * What the user said in response to one interview question.
@@ -141,7 +141,7 @@ export interface Turn {
 export interface Answer {
   duration: Duration;
   transcript: Transcript;
-  words?: Words;
+  words: Words;
 }
 /**
  * One spoken word and when it was said within an answer.
@@ -161,7 +161,6 @@ export interface Evaluation {
   question_id: QuestionId;
   relevance: MetricScore3;
   summary: Summary;
-  [k: string]: unknown;
 }
 /**
  * How clearly and logically the answer is structured.
@@ -169,7 +168,6 @@ export interface Evaluation {
 export interface MetricScore {
   feedback: Feedback;
   score: Score;
-  [k: string]: unknown;
 }
 /**
  * Whether the facts and reasoning in the answer are right.
@@ -177,7 +175,6 @@ export interface MetricScore {
 export interface MetricScore1 {
   feedback: Feedback;
   score: Score;
-  [k: string]: unknown;
 }
 /**
  * How far the answer goes beyond surface-level knowledge.
@@ -185,7 +182,6 @@ export interface MetricScore1 {
 export interface MetricScore2 {
   feedback: Feedback;
   score: Score;
-  [k: string]: unknown;
 }
 /**
  * How well the answer addresses the question and the role.
@@ -193,14 +189,13 @@ export interface MetricScore2 {
 export interface MetricScore3 {
   feedback: Feedback;
   score: Score;
-  [k: string]: unknown;
 }
 /**
  * The question the interviewer asked.
  */
 export interface Question {
   difficulty: Difficulty;
-  id?: Id1;
+  id: Id1;
   skill_id: SkillId;
   text: Text;
 }

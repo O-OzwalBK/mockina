@@ -61,7 +61,10 @@
   },
   "required": [
     "job_title",
-    "job_description"
+    "job_description",
+    "resume",
+    "id",
+    "created_at"
   ],
   "title": "Preparation",
   "type": "object"

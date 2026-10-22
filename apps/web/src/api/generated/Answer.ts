@@ -33,7 +33,7 @@ export type Words = WordTiming[];
 export interface Answer {
   duration: Duration;
   transcript: Transcript;
-  words?: Words;
+  words: Words;
 }
 /**
  * One spoken word and when it was said within an answer.

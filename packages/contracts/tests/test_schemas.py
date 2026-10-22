@@ -1,6 +1,6 @@
 import json
 
-from contracts.schemas import all_schemas
+from contracts.schemas import REQUEST_ONLY_MODELS, all_schemas
 
 EXPECTED_SCHEMAS = {
     "Answer",
@@ -13,6 +13,29 @@ EXPECTED_SCHEMAS = {
     "Turn",
     "WordTiming",
 }
+
+
+def _object_schemas(schema):
+    """The schema itself and every nested model schema under "$defs"."""
+    return [schema, *schema.get("$defs", {}).values()]
+
+
+def test_response_schemas_require_every_field():
+    """A model the server sends back lists every field as required, even those with defaults."""
+    for model_name, schema in all_schemas().items():
+        if model_name in REQUEST_ONLY_MODELS:
+            continue
+        for part in _object_schemas(schema):
+            if "properties" in part:
+                missing = set(part["properties"]) - set(part.get("required", []))
+                assert not missing, f"{model_name}: {sorted(missing)} are not required"
+
+
+def test_request_only_schemas_keep_optional_fields_optional():
+    """A model clients only send keeps its defaulted fields optional, so they can be left out."""
+    prep = all_schemas()["PreparationCreate"]
+    assert "resume" in prep["properties"]
+    assert "resume" not in prep["required"]
 
 
 def test_schemas_cover_every_public_model_with_fields():

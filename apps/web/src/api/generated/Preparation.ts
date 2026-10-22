@@ -25,9 +25,9 @@ export type Resume = string | null;
  * A stored preparation: what the client sent, plus the fields the server owns.
  */
 export interface Preparation {
-  created_at?: CreatedAt;
-  id?: Id;
+  created_at: CreatedAt;
+  id: Id;
   job_description: JobDescription;
   job_title: JobTitle;
-  resume?: Resume;
+  resume: Resume;
 }

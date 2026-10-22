@@ -15,5 +15,4 @@ export type Score = number;
 export interface MetricScore {
   feedback: Feedback;
   score: Score;
-  [k: string]: unknown;
 }

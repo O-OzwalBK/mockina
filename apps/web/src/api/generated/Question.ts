@@ -22,7 +22,7 @@ export type Text = string;
  */
 export interface Question {
   difficulty: Difficulty;
-  id?: Id;
+  id: Id;
   skill_id: SkillId;
   text: Text;
 }

@@ -78,6 +78,7 @@
   },
   "required": [
     "transcript",
+    "words",
     "duration"
   ],
   "title": "Answer",

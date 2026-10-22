@@ -50,10 +50,15 @@ export function storeIdentity(identity: Identity): void {
   }
 }
 
-/** Removes the current API instance's identity from browser storage. */
+/**
+ * Removes this API instance's identity.
+ * If `expectedToken` is given, removes it only when it is still the stored token, so a late reply for an old token cannot delete a newer identity.
+ */
 export function clearStoredIdentity(expectedToken?: string): void {
   const storageKey = getIdentityStorageKey();
+
   if (expectedToken && getStoredIdentity()?.token !== expectedToken) return;
+
   memoryIdentities.delete(storageKey);
   try {
     localStorage.removeItem(storageKey);
@@ -88,14 +93,13 @@ async function send(
     throw createNetworkError();
   }
 
-  // Forget the identity only if it is still the one this request used. A slow 401 for an old
-  // token must not delete the new identity the app minted in the meantime.
+  // Forget the identity only if it is still the one this request used. A slow 401 for an old token must not delete the new identity the app minted in the meantime.
   if (
     response.status === 401 &&
     tokenToBeSent &&
     getStoredIdentity()?.token === tokenToBeSent
   ) {
-    clearStoredIdentity();
+    clearStoredIdentity(tokenToBeSent);
   }
 
   if (!response.ok) throw await errorFromResponse(response);

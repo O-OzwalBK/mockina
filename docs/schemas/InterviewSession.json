@@ -36,6 +36,7 @@
       },
       "required": [
         "transcript",
+        "words",
         "duration"
       ],
       "title": "Answer",
@@ -167,6 +168,7 @@
         }
       },
       "required": [
+        "id",
         "text",
         "skill_id",
         "difficulty"
@@ -244,7 +246,11 @@
         }
       },
       "required": [
-        "question"
+        "question",
+        "status",
+        "answer",
+        "evaluation",
+        "grading_error"
       ],
       "title": "Turn",
       "type": "object"
@@ -379,7 +385,13 @@
     }
   },
   "required": [
-    "preparation_id"
+    "id",
+    "preparation_id",
+    "status",
+    "started_at",
+    "ended_at",
+    "updated_at",
+    "turns"
   ],
   "title": "InterviewSession",
   "type": "object"
