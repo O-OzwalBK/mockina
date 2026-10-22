@@ -63,22 +63,22 @@ export function clearStoredIdentity(expectedToken?: string): void {
   }
 }
 
-/** Sends an API request and centralizes auth, JSON, and error-envelope handling. */
-export async function request<T>(
+/**
+ * The one place that talks to the network: adds the bearer token, turns a failed fetch or a
+ * non-2xx response into an ApiError, and forgets the identity when the server rejects it.
+ */
+async function send(
   path: string,
-  init: RequestInit = {},
-): Promise<T> {
+  init: RequestInit,
+  routeNeedsToken: boolean,
+): Promise<Response> {
   const headers = new Headers(init.headers);
-  if (init.body !== undefined && !headers.has("Content-Type")) {
-    headers.set("Content-Type", "application/json");
+
+  let tokenToBeSent: string | null = null;
+  if (routeNeedsToken && !headers.has("Authorization")) {
+    tokenToBeSent = getStoredIdentity()?.token ?? null;
+    if (tokenToBeSent) headers.set("Authorization", `Bearer ${tokenToBeSent}`);
   }
-  const token = requiresAuthentication(path, init.method)
-    ? getStoredIdentity()?.token
-    : null;
-  if (token && !headers.has("Authorization"))
-    headers.set("Authorization", `Bearer ${token}`);
-  const authorization = headers.get("Authorization");
-  const sentToken = authorization?.match(/^Bearer\s+(.+)$/i)?.[1] ?? null;
 
   let response: Response;
   try {
@@ -88,8 +88,36 @@ export async function request<T>(
     throw createNetworkError();
   }
 
-  if (response.status === 401 && sentToken) clearStoredIdentity(sentToken);
+  // Forget the identity only if it is still the one this request used. A slow 401 for an old
+  // token must not delete the new identity the app minted in the meantime.
+  if (
+    response.status === 401 &&
+    tokenToBeSent &&
+    getStoredIdentity()?.token === tokenToBeSent
+  ) {
+    clearStoredIdentity();
+  }
+
   if (!response.ok) throw await errorFromResponse(response);
+
+  return response;
+}
+
+/** Sends an API request and centralizes auth, JSON, and error-envelope handling. */
+export async function request<T>(
+  path: string,
+  init: RequestInit = {},
+): Promise<T> {
+  const headers = new Headers(init.headers);
+  if (init.body !== undefined && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  const response = await send(
+    path,
+    { ...init, headers },
+    requiresAuthentication(path, init.method),
+  );
   if (response.status === 204) return undefined as T;
 
   let body: string;
@@ -113,21 +141,8 @@ export async function requestStream(
   signal?: AbortSignal,
 ): Promise<Response> {
   const headers = new Headers({ Accept: "text/event-stream" });
-  const token = getStoredIdentity()?.token;
-  if (token) headers.set("Authorization", `Bearer ${token}`);
-  const sentToken = token ?? null;
 
-  let response: Response;
-  try {
-    response = await fetch(`${getApiBaseUrl()}${path}`, { headers, signal });
-  } catch (error) {
-    if (isCallerCancellation(error, signal)) throw error;
-    throw createNetworkError();
-  }
-
-  if (response.status === 401 && sentToken) clearStoredIdentity(sentToken);
-  if (!response.ok) throw await errorFromResponse(response);
-  return response;
+  return send(path, { headers, signal }, true);
 }
 
 function isIdentity(value: unknown): value is Identity {
