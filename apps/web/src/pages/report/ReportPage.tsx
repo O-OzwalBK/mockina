@@ -1,4 +1,73 @@
-import { ArrowLeft, Download, Lightbulb, MessageSquareText, Target } from 'lucide-react';
-import { Link, useParams } from 'react-router-dom';
-import './ReportPage.css';
-export default function ReportPage(){const {reportId}=useParams();return <div className="page-content report-page"><Link to="/" className="back-link"><ArrowLeft size={16}/> Dashboard</Link><div className="page-heading"><div><p className="eyebrow">YOUR SESSION REVIEW</p><h1>Interview report</h1><p>Reflect on your practice and choose one thing to improve next.</p></div><button className="btn btn-secondary" onClick={()=>window.print()}><Download size={16}/> Print report</button></div><div className="report-notice"><Lightbulb size={19}/><div><strong>Your report will appear here after grading is complete.</strong><p>This starter page uses example sections. Connect it to the session report returned by your API before using it for real evaluations.</p></div></div><div className="grid grid-2 report-grid"><section className="card"><span className="report-icon"><Target/></span><h2>Strengths</h2><p className="muted">Highlight clear answers, relevant examples, and effective communication using actual evaluation data.</p></section><section className="card"><span className="report-icon mint"><MessageSquareText/></span><h2>Areas to improve</h2><p className="muted">Show actionable feedback and examples from the completed interview, not during the live session.</p></section></div><section className="card report-next"><h2>Plan your next practice</h2><p>Choose one improvement area and revisit it in your next preparation.</p><Link to="/guides" className="btn btn-primary">Explore interview guides</Link><small>Report reference: {reportId}</small></section></div>}
+import {
+  ArrowLeft,
+  Download,
+  Lightbulb,
+  MessageSquareText,
+  Target,
+} from "lucide-react";
+import { Link, useParams } from "react-router-dom";
+import "./ReportPage.css";
+export default function ReportPage() {
+  const { reportId } = useParams();
+  return (
+    <div className="page-content report-page">
+      <Link to="/" className="back-link">
+        <ArrowLeft size={16} /> Dashboard
+      </Link>
+      <div className="page-heading">
+        <div>
+          <p className="eyebrow">YOUR SESSION REVIEW</p>
+          <h1>Interview report</h1>
+          <p>Reflect on your practice and choose one thing to improve next.</p>
+        </div>
+        <button className="btn btn-secondary" onClick={() => window.print()}>
+          <Download size={16} /> Print report
+        </button>
+      </div>
+      <div className="report-notice">
+        <Lightbulb size={19} />
+        <div>
+          <strong>
+            Your report will appear here after grading is complete.
+          </strong>
+          <p>
+            This starter page uses example sections. Connect it to the session
+            report returned by your API before using it for real evaluations.
+          </p>
+        </div>
+      </div>
+      <div className="grid grid-2 report-grid">
+        <section className="card">
+          <span className="report-icon">
+            <Target />
+          </span>
+          <h2>Strengths</h2>
+          <p className="muted">
+            Highlight clear answers, relevant examples, and effective
+            communication using actual evaluation data.
+          </p>
+        </section>
+        <section className="card">
+          <span className="report-icon mint">
+            <MessageSquareText />
+          </span>
+          <h2>Areas to improve</h2>
+          <p className="muted">
+            Show actionable feedback and examples from the completed interview,
+            not during the live session.
+          </p>
+        </section>
+      </div>
+      <section className="card report-next">
+        <h2>Plan your next practice</h2>
+        <p>
+          Choose one improvement area and revisit it in your next preparation.
+        </p>
+        <Link to="/" className="btn btn-primary">
+          Back to home
+        </Link>
+        <small>Report reference: {reportId}</small>
+      </section>
+    </div>
+  );
+}

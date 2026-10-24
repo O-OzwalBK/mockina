@@ -1,29 +1,15 @@
 import { ArrowRight, Clock3, Plus, Sparkles, Target } from "lucide-react";
 import { Link } from "react-router-dom";
+import PreparationCard from "../../components/preparation/PreparationCard";
+import { usePreparations } from "../../hooks/usePreparations";
 import "./DashboardPage.css";
 
-const preparations = [
-  {
-    id: "frontend",
-    title: "Frontend Developer",
-    company: "Practice interview",
-    level: "Intermediate",
-    questions: 10,
-    progress: 60,
-    color: "violet",
-  },
-  {
-    id: "qa",
-    title: "QA Automation Engineer",
-    company: "Career preparation",
-    level: "Beginner friendly",
-    questions: 8,
-    progress: 25,
-    color: "blue",
-  },
-];
-
 export default function DashboardPage() {
+  const { loading, error, data, retry } = usePreparations();
+  const items = data ?? [];
+  const sessions = items.reduce((sum, item) => sum + item.sessionCount, 0);
+  const practised = items.filter((item) => item.sessionCount > 0).length;
+
   return (
     <div className="page-content dashboard-page">
       <section className="welcome-banner">
@@ -36,9 +22,7 @@ export default function DashboardPage() {
             <br />
             <em>Interview with confidence.</em>
           </h1>
-          <p>
-            Turn a little preparation into a big step forward in your career.
-          </p>
+          <p>Turn a little preparation into a big step forward in your career.</p>
           <Link className="btn btn-primary" to="/preparations/new">
             Create preparation <ArrowRight size={17} />
           </Link>
@@ -53,32 +37,34 @@ export default function DashboardPage() {
           <span className="float-chip chip-bottom">One step at a time</span>
         </div>
       </section>
+
       <div className="stats-grid">
         <div className="stat-card">
           <span className="stat-icon purple">
             <Target size={19} />
           </span>
           <span className="stat-label">Preparations</span>
-          <strong>02</strong>
+          <strong>{loading ? "–" : items.length}</strong>
           <small>Keep your momentum going</small>
         </div>
         <div className="stat-card">
           <span className="stat-icon green">
             <Sparkles size={19} />
           </span>
-          <span className="stat-label">Sessions completed</span>
-          <strong>04</strong>
+          <span className="stat-label">Sessions</span>
+          <strong>{loading ? "–" : sessions}</strong>
           <small>Every session is progress</small>
         </div>
         <div className="stat-card">
           <span className="stat-icon amber">
             <Clock3 size={19} />
           </span>
-          <span className="stat-label">Practice time</span>
-          <strong>1.5h</strong>
+          <span className="stat-label">Practised preparations</span>
+          <strong>{loading ? "–" : practised}</strong>
           <small>Time invested in yourself</small>
         </div>
       </div>
+
       <section className="section-block">
         <div className="section-header">
           <div>
@@ -89,39 +75,50 @@ export default function DashboardPage() {
             View progress <ArrowRight size={15} />
           </Link>
         </div>
-        <div className="prep-grid">
-          {preparations.map((item) => (
-            <article className="prep-card card" key={item.id}>
-              <div className={`prep-symbol ${item.color}`}>
-                <Target size={22} />
-              </div>
-              <span className="pill">{item.level}</span>
-              <h3>{item.title}</h3>
-              <p>{item.company}</p>
-              <div className="prep-meta">
-                <span>{item.questions} questions</span>
-                <span>{item.progress}% complete</span>
-              </div>
-              <div className="progress-track">
-                <span style={{ width: `${item.progress}%` }} />
-              </div>
-              <Link
-                className="btn btn-secondary prep-action"
-                to={`/preparations/${item.id}`}
-              >
-                Continue <ArrowRight size={15} />
-              </Link>
-            </article>
-          ))}
-          <Link to="/preparations/new" className="new-prep-card">
-            <span>
-              <Plus size={23} />
-            </span>
-            <strong>Start a new preparation</strong>
-            <small>Build a practice plan for your next role</small>
-          </Link>
-        </div>
+
+        {loading && (
+          <div className="card" role="status">
+            Loading your preparations…
+          </div>
+        )}
+
+        {error && (
+          <div className="card" role="alert">
+            <p>{error.message}</p>
+            {"retryable" in error && (error as { retryable: boolean }).retryable && (
+              <button className="btn btn-secondary" onClick={retry}>
+                Try again
+              </button>
+            )}
+          </div>
+        )}
+
+        {!loading && !error && items.length === 0 && (
+          <div className="card">
+            <h3>Create your first preparation</h3>
+            <p>A preparation is a job you want to practise for. Paste a job description to begin.</p>
+            <Link className="btn btn-primary" to="/preparations/new">
+              Create your first preparation
+            </Link>
+          </div>
+        )}
+
+        {!loading && !error && items.length > 0 && (
+          <div className="prep-grid">
+            {items.map((item) => (
+              <PreparationCard key={item.id} item={item} />
+            ))}
+            <Link to="/preparations/new" className="new-prep-card">
+              <span>
+                <Plus size={23} />
+              </span>
+              <strong>Start a new preparation</strong>
+              <small>Build a practice plan for your next role</small>
+            </Link>
+          </div>
+        )}
       </section>
+
       <section className="tip-card">
         <span className="tip-star">
           <Sparkles size={20} />
@@ -129,11 +126,10 @@ export default function DashboardPage() {
         <div>
           <strong>A little practice goes a long way</strong>
           <p>
-            Try one focused interview session today. Review your report
-            afterward to spot one thing to improve.
+            Try one focused interview session today. Review your report afterward to spot one thing to improve.
           </p>
         </div>
-        <Link to="/guides" aria-label="Explore interview guides">
+        <Link to="/preparations/new" aria-label="Start a new preparation">
           <ArrowRight size={18} />
         </Link>
       </section>

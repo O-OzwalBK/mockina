@@ -2,7 +2,6 @@ import { NavLink, Outlet } from "react-router-dom";
 import {
   BrainCircuit,
   ChartNoAxesColumn,
-  Compass,
   House,
   Settings2,
 } from "lucide-react";
@@ -11,7 +10,6 @@ import "./AppLayout.css";
 const links = [
   { to: "/", label: "Dashboard", icon: House, end: true },
   { to: "/progress", label: "My progress", icon: ChartNoAxesColumn },
-  { to: "/guides", label: "Interview guides", icon: Compass },
   { to: "/settings", label: "Settings", icon: Settings2 },
 ];
 

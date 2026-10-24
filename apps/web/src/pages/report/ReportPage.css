@@ -1,1 +1,72 @@
-.report-page .page-heading { align-items: center; }.report-notice { display: flex; gap: 13px; padding: 18px; color: #5348c8; border: 1px solid #e4e0ff; border-radius: 16px; background: #f1f0ff; }.report-notice > svg { flex: 0 0 auto; }.report-notice strong { font-size: .86rem; }.report-notice p { margin: 7px 0 0; color: #6e7192; font-size: .8rem; line-height: 1.55; }.report-grid { margin-top: 18px; }.report-icon { display: grid; place-items: center; width: 43px; height: 43px; color: var(--primary); background: var(--primary-soft); border-radius: 13px; }.report-icon.mint { color: var(--success); background: #e5f8f0; }.report-grid h2 { margin: 17px 0 8px; font-size: 1.05rem; }.report-grid p { font-size: .83rem; line-height: 1.65; }.report-next { margin-top: 18px; }.report-next h2 { margin: 0; font-size: 1.1rem; }.report-next p { color: var(--muted); font-size: .84rem; }.report-next small { display: block; margin-top: 15px; color: #9aa2b1; }@media(max-width:600px){.report-page .page-heading{align-items:flex-start}.report-grid{grid-template-columns:1fr}}
+.report-page .page-heading {
+  align-items: center;
+}
+.report-notice {
+  display: flex;
+  gap: 13px;
+  padding: 18px;
+  color: #5348c8;
+  border: 1px solid #e4e0ff;
+  border-radius: 16px;
+  background: #f1f0ff;
+}
+.report-notice > svg {
+  flex: 0 0 auto;
+}
+.report-notice strong {
+  font-size: 0.86rem;
+}
+.report-notice p {
+  margin: 7px 0 0;
+  color: #6e7192;
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+.report-grid {
+  margin-top: 18px;
+}
+.report-icon {
+  display: grid;
+  place-items: center;
+  width: 43px;
+  height: 43px;
+  color: var(--primary);
+  background: var(--primary-soft);
+  border-radius: 13px;
+}
+.report-icon.mint {
+  color: var(--success);
+  background: #e5f8f0;
+}
+.report-grid h2 {
+  margin: 17px 0 8px;
+  font-size: 1.05rem;
+}
+.report-grid p {
+  font-size: 0.83rem;
+  line-height: 1.65;
+}
+.report-next {
+  margin-top: 18px;
+}
+.report-next h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+.report-next p {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+.report-next small {
+  display: block;
+  margin-top: 15px;
+  color: #9aa2b1;
+}
+@media (max-width: 600px) {
+  .report-page .page-heading {
+    align-items: flex-start;
+  }
+  .report-grid {
+    grid-template-columns: 1fr;
+  }
+}
