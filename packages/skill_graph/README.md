@@ -29,20 +29,88 @@ The result is a `contracts.SkillGraph` containing flat `SkillNode` values with `
 Each node ID is computed by `contracts.skill_id`; the model never creates IDs. Leaves carry
 preparation-specific importance and expected difficulty, each from 1 to 5.
 
+## How extraction runs
+
+The API developer route is a thin wrapper; the package entry point is `extract_skills`.
+
+```text
+POST /v1/dev/extract-skills/raw          apps/api/src/api/dev_skills.py
+└─ extract_job_skills_raw()              validates the title and the text/plain body
+   └─ _extraction_response()             wraps the LLM in a logging proxy and times the call
+      └─ extract_skills()                packages/skill_graph/src/skill_graph/extract.py
+         ├─ catalog.all_entries()        store.py
+         ├─ select_catalog_entries()     prompt.py
+         ├─ build_prompt()               prompt.py
+         ├─ _complete()                  extract.py -> llm.complete() -> llm_gateway
+         ├─ parse_json_reply()           llm_gateway
+         ├─ parse_skill_tree()           extract.py
+         │  ├─ _require_object()
+         │  ├─ _require_label()
+         │  ├─ _flatten_skill()          once per nested skill, recursively
+         │  └─ SkillGraph.model_validate()   contracts/skills.py
+         └─ catalog.record()             store.py
+```
+
+Each step does one job:
+
+1. **Read the catalog.** `catalog.all_entries()` returns seed labels and every label recorded by
+   earlier extractions in the same process. The in-memory catalog starts with 12 seeds such as
+   JavaScript, TypeScript, Node.js, Docker, and Git.
+2. **Choose prompt entries.** `select_catalog_entries()` caps the catalog at
+   `MAX_CATALOG_ENTRIES_IN_PROMPT` (200), seed entries first, so the model can reuse existing
+   labels instead of inventing near-duplicates.
+3. **Build the prompt.** `build_prompt()` returns two `ChatMessage`s. The system message states
+   the extraction rules; the user message fences the job title, description, and catalog as
+   untrusted data. The model is told to return a nested `categories`/`skills` JSON object.
+4. **Ask the model.** `_complete()` calls `llm.complete(messages, temperature=0.1)`. The model
+   returns text; it may contain JSON directly, in a code fence, or with prose around it.
+5. **Read the JSON.** `parse_json_reply()` extracts a JSON value without trusting the rest of
+   the reply.
+6. **Flatten and identify.** `parse_skill_tree()` requires a non-empty `categories` array (at
+   most `MAX_ROOT_CATEGORIES`, 8). For each category it creates a root node with
+   `skill_id(root_label, root_label)`, then `_flatten_skill()` walks the children recursively.
+   Every node gets its ID from `skill_id(root_label, node_label)`; the model never supplies IDs.
+   Depth may not exceed three, and only leaves may carry `importance` and `difficulty`.
+7. **Validate the contract.** `SkillGraph.model_validate()` applies the shared rules: unique IDs,
+   unique sibling labels, valid parents, root-scoped IDs, 3–30 leaves, and 1–5 metadata on leaves
+   only. Any violation raises `SkillGraphValidationError`.
+8. **Record and return.** `catalog.record()` stores first-seen root and node labels by ID, then
+   the validated graph goes back to the caller.
+
+The read/validate loop has a bounded repair policy:
+
+- an unusable JSON value or wrong shape may receive **one parse repair**;
+- a parsed value that fails the graph rules may receive **one graph repair**;
+- each repair repeats the original prompt with a correction note and the previous reply fenced as
+  untrusted data, so at most **three model calls** are made in total;
+- a reply with `finish_reason="length"` fails immediately, because another prompt cannot fix an
+  output limit that truncated the reply.
+
+### Grouping is the model's choice
+
+The model chooses the category labels and which skills go under them. The code validates the
+shape and the graph rules, not the words. A job description that never says "Backend Development"
+can still produce a root with that label if the model decides it is a useful grouping for
+Node.js, TypeScript, and Nest.js.
+
+That is intentional: categories are presentation and grouping, not askable skills. A root has
+`parent_id=None` and no importance or difficulty. The engine selects only leaves, so a label such
+as "Backend Development" is never asked as a question; Node.js and TypeScript are.
+
+The catalog nudges the model toward existing labels, especially the seeded technologies, but it
+does not force a taxonomy or a particular root. If category wording must be standardized, that is
+a prompt or validation change in this package, not something the current code guarantees.
+
 ## Extraction behavior
 
 - The model prompt prefers two levels but accepts depth three. It aims for 8–15 leaf skills; the
   validator accepts 3–30 so a vague job does not waste a repair request.
-- The model returns a nested `categories`/`skills` JSON object. The package flattens it and
-  validates the result against `SkillGraph`.
-- An unusable JSON/shape response may receive one parse repair. A structurally invalid graph may
-  receive one graph repair. At most three calls are made in total. A reply stopped with
-  `finish_reason="length"` fails immediately because another prompt cannot fix a configuration
-  that truncated the response.
 - Gateway `LLMError` subclasses pass through unchanged. Extraction errors contain no job text or
   model reply.
 - Prompts include the selected catalog labels, never catalog IDs, and fence the title, description,
   and catalog separately. Fences grow past any backtick run in the supplied text.
+- Every model reply is untrusted text: it is parsed defensively and never used to construct IDs,
+  paths, or prompts without validation.
 
 ## Catalog
 
