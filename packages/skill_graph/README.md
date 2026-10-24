@@ -105,7 +105,10 @@ a prompt or validation change in this package, not something the current code gu
 ## Extraction behavior
 
 - The model prompt prefers two levels but accepts depth three. It aims for 8–15 leaf skills; the
-  validator accepts 3–30 so a vague job does not waste a repair request.
+  validator accepts 3–30 so a vague job does not waste a repair request. It asks for labels of 1–3
+  words and at most 80 characters, although `SkillNode.label` accepts up to 120; the prompt is
+  deliberately stricter. It also says each label may appear only once within a category, because
+  IDs are root-scoped and a repeated leaf label under two parents collides.
 - Gateway `LLMError` subclasses pass through unchanged. Extraction errors contain no job text or
   model reply.
 - Prompts include the selected catalog labels, never catalog IDs, and fence the title, description,
@@ -128,7 +131,9 @@ owner's own partition by default, so one user's labels never appear in another u
 `CatalogSharing` is the extension point for another policy: implement `visible_partitions(owner_id)`
 and `write_partition(owner_id)` to share by team, domain, preparation, or a future promotion
 threshold. `InMemorySkillCatalog(sharing=...)` accepts such a policy; `PerUserSharing` is the
-default. The prompt entry cap applies after the visible partitions are merged.
+default. The prompt entry cap applies after the visible partitions are merged. The selected entries are
+printed one root per line (`React: Hooks, State`) rather than as JSON; at the 200-entry cap that is
+about four times smaller and keeps every label beside its root.
 
 The prompt catalog is capped at `MAX_CATALOG_ENTRIES_IN_PROMPT` (200). Selection priority is seed
 entries, entries under seeded roots, entries under roots supplied in `prior_root_labels`, then all

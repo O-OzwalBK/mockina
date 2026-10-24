@@ -130,3 +130,29 @@ def test_prompt_fence_size_depends_on_backtick_runs_not_job_word_length():
     messages = build_prompt("Developer", "x" * 200, SEED_CATALOG[:1])
     fence_lengths = [len(run) for run in re.findall(r"`+", messages[1].content)]
     assert fence_lengths == [3, 3, 3, 3, 3, 3]
+
+
+def test_catalog_is_grouped_by_root_without_json_boilerplate():
+    """The prompt groups node labels under their root instead of repeating JSON keys per entry."""
+    entries = [
+        catalog_entry("React", "Hooks", 1),
+        catalog_entry("React", "Effects", 2),
+        catalog_entry("Vue", "Composables", 0),
+    ]
+    messages = build_prompt("Developer", "Build interfaces.", entries)
+    content = messages[1].content
+
+    assert "React: Hooks, Effects" in content
+    assert "Vue: Composables" in content
+    assert '"root_label"' not in content
+    assert '"node_label"' not in content
+
+
+def test_prompt_states_the_label_length_and_uniqueness_rules():
+    """The model is told to keep labels short and unique within a category."""
+    system = build_prompt("Developer", "Build interfaces.", SEED_CATALOG[:1])[0].content
+    lowered = system.lower()
+
+    assert "80 characters" in lowered
+    assert "only once within a category" in lowered
+    assert "no prose before or after" in lowered
