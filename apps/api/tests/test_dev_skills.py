@@ -119,6 +119,23 @@ def test_extract_skills_returns_a_safe_error_after_repair_is_exhausted():
     assert marker not in response.text
 
 
+def test_a_truncated_extraction_logs_its_reason_without_job_text(caplog):
+    """A truncation is distinguishable in the logs from a bad graph, and still leaks no text."""
+    marker = "private-job-description-marker"
+    caplog.set_level(logging.WARNING, logger="api.main")
+    fake = FakeLLM(Completion(text="partial", model="fake-model", finish_reason="length"))
+
+    with TestClient(build_app(fake)) as client:
+        response = client.post(
+            "/v1/dev/extract-skills",
+            json={"job_title": "Developer", "job_description": marker},
+        )
+
+    assert response.status_code == 502
+    assert "reason=truncated" in caplog.text
+    assert marker not in caplog.text
+
+
 def test_extract_skills_logs_model_metadata_without_job_content(caplog):
     """Model-call logs include outcome metadata but never the pasted job description."""
     marker = "private-job-description-marker"

@@ -152,7 +152,9 @@ context to match the model server and leave room for the output. Never put `.env
 browser variable or commit `.env`.
 
 `ReplyNotJsonError` from `llm_gateway` and contract validation failures are handled by the bounded
-repair policy. Truncation raises `SkillExtractionError`; gateway errors are not wrapped.
+repair policy. Truncation raises `SkillExtractionError` with `reason="truncated"`; the API logs the
+reason (`truncated`, `parse_repair_exhausted`, or `graph_repair_exhausted`) without job text, while
+the public error stays the shared `llm_bad_response`. Gateway errors are not wrapped.
 
 ## Development
 

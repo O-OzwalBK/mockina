@@ -195,6 +195,11 @@ def create_app(
 
     @app.exception_handler(SkillGraphError)
     async def skill_graph_error_handler(_: Request, error: SkillGraphError) -> JSONResponse:
+        logger.warning(
+            "skill_graph_error type=%s reason=%s",
+            type(error).__name__,
+            getattr(error, "reason", "invalid_graph"),
+        )
         return JSONResponse(
             status_code=502,
             content={

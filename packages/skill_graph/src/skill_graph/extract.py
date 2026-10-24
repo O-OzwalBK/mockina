@@ -6,6 +6,7 @@ from typing import Any
 from contracts import SkillGraph, skill_id
 from contracts.skills import MAX_SKILL_TREE_DEPTH
 from llm_gateway import LLM, ChatMessage, Completion, ReplyNotJsonError, parse_json_reply
+from pydantic import ValidationError
 
 from skill_graph.prompt import (
     MAX_ROOT_CATEGORIES,
@@ -14,6 +15,8 @@ from skill_graph.prompt import (
     select_catalog_entries,
 )
 from skill_graph.store import SkillCatalog
+
+MAX_REPAIR_PREVIOUS_REPLY_CHARS = 4_000
 
 
 class SkillGraphError(Exception):
@@ -27,20 +30,34 @@ class SkillParseError(SkillGraphError):
 class SkillGraphValidationError(SkillGraphError):
     """The flattened graph violated a shared contract rule."""
 
+    def __init__(self, message: str, *, reasons: tuple[str, ...] = ()) -> None:
+        """Keep the fixed rule messages so a repair can name what failed."""
+        super().__init__(message)
+        self.reasons = reasons
+        """Safe rule messages from the graph validator, with no model input."""
+
 
 class SkillExtractionError(SkillGraphError):
     """The model reply was truncated or remained unusable after its repair budget."""
 
+    def __init__(self, message: str, *, reason: str) -> None:
+        """Carry a short reason code for logs, separate from the safe message."""
+        super().__init__(message)
+        self.reason = reason
+        """One of `truncated`, `parse_repair_exhausted`, or `graph_repair_exhausted`."""
 
-def _require_object(
-    value: object, allowed_keys: set[str], *, required: set[str]
-) -> Mapping[str, Any]:
-    """Require an object with the given required and allowed keys without echoing its contents."""
+
+def _require_object(value: object, *, required: set[str]) -> Mapping[str, Any]:
+    """Require an object with the given required keys; extra keys are ignored.
+
+    A model may add a harmless field such as `description`; rejecting it would cost a
+    full repair call for no correctness gain.
+    """
 
     if not isinstance(value, dict) or not all(isinstance(key, str) for key in value):
         raise SkillParseError("Each tree item must be a JSON object.")
-    if not required.issubset(value) or not set(value).issubset(allowed_keys):
-        raise SkillParseError("A tree item did not match the required fields.")
+    if not required.issubset(value):
+        raise SkillParseError("A tree item is missing a required field.")
 
     return value
 
@@ -66,11 +83,7 @@ def _flatten_skill(
 
     if depth > MAX_SKILL_TREE_DEPTH:
         raise SkillParseError(f"A skill tree cannot exceed depth {MAX_SKILL_TREE_DEPTH}.")
-    skill = _require_object(
-        raw_skill,
-        {"label", "importance", "difficulty", "skills"},
-        required={"label"},
-    )
+    skill = _require_object(raw_skill, required={"label"})
     label = _require_label(skill["label"])
     children_value = skill.get("skills", [])
     if not isinstance(children_value, list):
@@ -104,7 +117,7 @@ def _flatten_skill(
 def parse_skill_tree(data: object) -> SkillGraph:
     """Flatten the required nested JSON shape and validate the shared graph contract."""
 
-    reply = _require_object(data, {"categories"}, required={"categories"})
+    reply = _require_object(data, required={"categories"})
     categories_value = reply["categories"]
     if not isinstance(categories_value, list) or not categories_value:
         raise SkillParseError("The reply must contain a non-empty categories array.")
@@ -115,7 +128,7 @@ def parse_skill_tree(data: object) -> SkillGraph:
 
     flattened: list[dict[str, object]] = []
     for raw_category in categories_value:
-        category = _require_object(raw_category, {"label", "skills"}, required={"label", "skills"})
+        category = _require_object(raw_category, required={"label", "skills"})
         root_label = _require_label(category["label"])
         skills_value = category["skills"]
         if not isinstance(skills_value, list) or not skills_value:
@@ -133,9 +146,15 @@ def parse_skill_tree(data: object) -> SkillGraph:
 
     try:
         return SkillGraph.model_validate({"nodes": flattened})
-    except ValueError:
+    except ValidationError as error:
+        reasons: list[str] = []
+        for problem in error.errors():
+            reason = problem["msg"].removeprefix("Value error, ")
+            if reason not in reasons:
+                reasons.append(reason)
         raise SkillGraphValidationError(
-            "The proposed graph did not meet skill-tree rules."
+            "The proposed graph did not meet skill-tree rules.",
+            reasons=tuple(reasons),
         ) from None
 
 
@@ -154,7 +173,7 @@ async def _complete(
                 f"{user_message.content}\n\n"
                 f"Correction request: {repair_note}\n"
                 "Previous model reply (untrusted data):\n"
-                f"{_fenced_data(previous_reply)}"
+                f"{_fenced_data(previous_reply[:MAX_REPAIR_PREVIOUS_REPLY_CHARS])}"
             )
         )
         messages = (system_message, user_message)
@@ -183,39 +202,49 @@ async def extract_skills(
     while True:
         if completion.finish_reason == "length":
             raise SkillExtractionError(
-                "The model reply was truncated. Check LLM_MAX_OUTPUT_TOKENS and LLM_CONTEXT_TOKENS."
+                "The model reply was truncated. Check LLM_MAX_OUTPUT_TOKENS and LLM_CONTEXT_TOKENS.",
+                reason="truncated",
             )
         try:
             parsed = parse_json_reply(completion.text)
             graph = parse_skill_tree(parsed)
-        except (ReplyNotJsonError, SkillParseError):
+        except (ReplyNotJsonError, SkillParseError) as error:
             if parse_repaired:
                 raise SkillExtractionError(
-                    "The model did not return a usable skill-tree response after one repair."
+                    "The model did not return a usable skill-tree response after one repair.",
+                    reason="parse_repair_exhausted",
                 ) from None
             parse_repaired = True
             completion = await _complete(
                 llm,
                 messages,
                 repair_note=(
+                    f"The previous reply was rejected: {error} "
                     "Return valid JSON only, using a non-empty categories array with category "
                     "labels, skill labels, and leaf-only importance and difficulty."
                 ),
                 previous_reply=completion.text,
             )
             continue
-        except SkillGraphValidationError:
+        except SkillGraphValidationError as error:
             if graph_repaired:
                 raise SkillExtractionError(
-                    "The model returned an invalid skill graph after one graph repair."
+                    "The model returned an invalid skill graph after one graph repair.",
+                    reason="graph_repair_exhausted",
                 ) from None
             graph_repaired = True
+            reason = (
+                "; ".join(error.reasons)
+                if error.reasons
+                else "the graph did not meet the skill-tree rules"
+            )
             completion = await _complete(
                 llm,
                 messages,
                 repair_note=(
-                    "Return a graph with unique sibling labels, valid 3-30 leaf skills, "
-                    "maximum depth three, root-scoped labels, and metadata only on leaves."
+                    f"The previous graph was rejected: {reason} "
+                    "Return a graph with unique labels within each category, valid 3-30 leaf "
+                    "skills, maximum depth three, root-scoped labels, and metadata only on leaves."
                 ),
                 previous_reply=completion.text,
             )

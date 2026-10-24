@@ -147,7 +147,7 @@ async def test_invalid_graph_gets_one_graph_repair_call():
 
     assert isinstance(graph, SkillGraph)
     assert len(fake.calls) == 2
-    assert "graph" in fake.calls[1].messages[-1].content.lower()
+    assert "3 and 30" in fake.calls[1].messages[-1].content
 
 
 @pytest.mark.anyio
@@ -175,7 +175,7 @@ async def test_truncated_reply_fails_without_a_repair_call():
     """A length-stopped reply is a configuration failure and is never repaired."""
     fake = FakeLLM(completion(valid_reply(), finish_reason="length"), completion(valid_reply()))
 
-    with pytest.raises(SkillExtractionError):
+    with pytest.raises(SkillExtractionError) as caught:
         await extract_skills(
             fake,
             InMemorySkillCatalog(seed_entries=()),
@@ -184,6 +184,7 @@ async def test_truncated_reply_fails_without_a_repair_call():
             job_description="Build web interfaces.",
         )
 
+    assert caught.value.reason == "truncated"
     assert len(fake.calls) == 1
     assert fake.remaining == 1
 
@@ -214,4 +215,89 @@ async def test_gateway_errors_pass_through_without_repair(error):
             job_description="Build web interfaces.",
         )
     assert caught.value is error
-    assert len(fake.calls) == 1
+
+
+def test_parse_skill_tree_ignores_unknown_model_fields():
+    """A harmless extra field costs no repair call; only the required shape and rules matter."""
+    reply = valid_reply()
+    reply["categories"][0]["description"] = "A grouping chosen by the model."
+    reply["categories"][0]["skills"][0]["reason"] = "The model's explanation."
+
+    graph = parse_skill_tree(reply)
+
+    assert len(graph.nodes) == 4
+
+
+@pytest.mark.anyio
+async def test_repair_prompt_fences_the_previous_reply_as_untrusted_data():
+    """The previous model output is fenced, so a fence inside it cannot close the block."""
+    fake = FakeLLM("not JSON", completion(valid_reply()))
+    await extract_skills(
+        fake,
+        InMemorySkillCatalog(seed_entries=()),
+        owner_id="alice",
+        job_title="React Developer",
+        job_description="Build web interfaces.",
+    )
+
+    repair = fake.calls[1].messages[-1].content
+    assert "```text\nnot JSON\n```" in repair
+
+
+@pytest.mark.anyio
+async def test_repair_prompt_bounds_a_huge_previous_reply():
+    """A very large previous reply is truncated before it is added to the repair prompt."""
+    huge = "not JSON " + "x" * 20_000
+    fake = FakeLLM(huge, completion(valid_reply()))
+    await extract_skills(
+        fake,
+        InMemorySkillCatalog(seed_entries=()),
+        owner_id="alice",
+        job_title="React Developer",
+        job_description="Build web interfaces.",
+    )
+
+    repair = fake.calls[1].messages[-1].content
+    assert len(repair) < 10_000
+
+
+@pytest.mark.anyio
+async def test_a_budget_error_on_the_repair_call_passes_through():
+    """If the repair prompt no longer fits, the gateway error is not turned into a parse error."""
+    fake = FakeLLM("not JSON", ContextBudgetExceededError("too long"))
+    catalog = InMemorySkillCatalog(seed_entries=())
+
+    with pytest.raises(ContextBudgetExceededError) as caught:
+        await extract_skills(
+            fake,
+            catalog,
+            owner_id="alice",
+            job_title="React Developer",
+            job_description="Build web interfaces.",
+        )
+
+    assert caught.value.retryable is False
+    assert len(fake.calls) == 2
+    assert await catalog.all_entries("alice") == ()
+
+
+@pytest.mark.anyio
+async def test_extraction_errors_do_not_echo_job_text_or_the_model_reply():
+    """A failed extraction reports the rule, never the pasted job or the model's text."""
+    job_marker = "private-job-marker"
+    reply_marker = "private-reply-marker"
+    fake = FakeLLM(reply_marker, reply_marker)
+
+    with pytest.raises(SkillExtractionError) as raised:
+        await extract_skills(
+            fake,
+            InMemorySkillCatalog(seed_entries=()),
+            owner_id="alice",
+            job_title="React Developer",
+            job_description=job_marker,
+        )
+
+    message = str(raised.value)
+    assert job_marker not in message
+    assert reply_marker not in message
+    assert len(fake.calls) == 2
