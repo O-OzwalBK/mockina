@@ -5,8 +5,8 @@ optionally add your resume), practise with a voice-based AI interviewer, and get
 graded feedback on the things a human interviewer would judge. A dashboard shows
 which skills are strong and which need work, across all your practice sessions.
 
-> **Status:** early development, built for Frogtoberfest 2026. The shared data
-> models are done; the interview engine, grading, voice, and clients are in progress.
+> **Status:** early development, built for Frogtoberfest 2026. Shared data models and job-based
+> skill extraction are in place; the interview engine, grading, voice, and clients are in progress.
 
 ## How it will work
 
@@ -28,17 +28,17 @@ which skills are strong and which need work, across all your practice sessions.
 
 ## Repository layout
 
-| Path | Purpose |
-|---|---|
-| `apps/api` | FastAPI backend |
-| `packages/contracts` | Shared data models and their validation rules |
-| `packages/engine` | Interview flow (planned) |
-| `packages/evaluator` | Grading answers (planned) |
-| `packages/llm_gateway` | Talking to language-model providers |
-| `packages/session_store` | Saving and loading sessions (planned) |
-| `packages/skill_graph` | Skill identities and mastery tracking (planned) |
-| `packages/voice` | Speech-to-text and text-to-speech integration (planned) |
-| `docs/schemas` | Generated JSON schemas of the data models |
+| Path                     | Purpose                                                    |
+| ------------------------ | ---------------------------------------------------------- |
+| `apps/api`               | FastAPI backend                                            |
+| `packages/contracts`     | Shared data models and their validation rules              |
+| `packages/engine`        | Interview flow (planned)                                   |
+| `packages/evaluator`     | Grading answers (planned)                                  |
+| `packages/llm_gateway`   | Talking to language-model providers                        |
+| `packages/session_store` | Saving and loading sessions (planned)                      |
+| `packages/skill_graph`   | Stable skill identities and job-specific skill hierarchies |
+| `packages/voice`         | Speech-to-text and text-to-speech integration (planned)    |
+| `docs/schemas`           | Generated JSON schemas of the data models                  |
 
 ## Getting started
 

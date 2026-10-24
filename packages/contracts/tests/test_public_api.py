@@ -14,10 +14,15 @@ EXPECTED_PUBLIC_NAMES = {
     "PreparationCreate",
     "Question",
     "SessionStatus",
+    "SkillGraph",
+    "SkillNode",
     "Turn",
     "TurnStatus",
     "UtcDatetime",
     "WordTiming",
+    "normalize",
+    "normalize_sorted",
+    "skill_id",
     "utc_now",
 }
 

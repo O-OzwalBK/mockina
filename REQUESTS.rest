@@ -46,3 +46,12 @@ Content-Type: application/json
 		{"role": "user", "content": "Say hello."}
 	]
 }
+
+### Extract a job's technical skill graph (requires API_DEV_ROUTES=true)
+POST {{baseUrl}}/v1/dev/extract-skills
+Content-Type: application/json
+
+{
+	"job_title": "Junior React Developer",
+	"job_description": "Build accessible user interfaces with React and TypeScript."
+}

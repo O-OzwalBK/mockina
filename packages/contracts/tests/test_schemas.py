@@ -10,6 +10,8 @@ EXPECTED_SCHEMAS = {
     "Preparation",
     "PreparationCreate",
     "Question",
+    "SkillGraph",
+    "SkillNode",
     "Turn",
     "WordTiming",
 }

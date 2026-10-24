@@ -1,4 +1,7 @@
 {
   "python.analysis.autoImportCompletions": true,
-  "python.terminal.useEnvFile": true
+  "python.terminal.useEnvFile": true,
+  "chat.tools.terminal.autoApprove": {
+    "uv": true
+  }
 }

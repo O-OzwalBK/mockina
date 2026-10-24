@@ -1,11 +1,79 @@
 from typing import Any
 
+from contracts import SkillGraph
+from contracts.preparation import MAX_JOB_DESCRIPTION_LENGTH, MAX_JOB_TITLE_LENGTH
 from llm_gateway import ChatMessage
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 MAX_MESSAGES = 100
 MAX_MESSAGE_CHARS = 20_000
 MAX_TOTAL_MESSAGE_CHARS = 100_000
+
+
+class SkillExtractionRequest(BaseModel):
+    """Job information sent to the developer-only skill extraction route."""
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    job_title: str = Field(
+        description="Short title for the target job.",
+        min_length=1,
+        max_length=MAX_JOB_TITLE_LENGTH,
+        examples=["Junior React Developer"],
+    )
+    job_description: str = Field(
+        description="The job description used to identify technical skills.",
+        min_length=1,
+        max_length=MAX_JOB_DESCRIPTION_LENGTH,
+        examples=["Build accessible web interfaces with React and TypeScript."],
+    )
+
+
+class SkillExtractionResponse(BaseModel):
+    """Validated skill graph and elapsed time for a developer extraction request."""
+
+    graph: SkillGraph = Field(
+        description="The validated category and skill tree for the supplied job.",
+        examples=[
+            {
+                "nodes": [
+                    {
+                        "id": "cee9c65f-beef-5a90-8f32-34dc4048f4bc",
+                        "label": "React",
+                        "parent_id": None,
+                        "importance": None,
+                        "difficulty": None,
+                    },
+                    {
+                        "id": "8dd8e540-014e-52e3-8f87-0fd42abe1678",
+                        "label": "Hooks",
+                        "parent_id": "cee9c65f-beef-5a90-8f32-34dc4048f4bc",
+                        "importance": 4,
+                        "difficulty": 3,
+                    },
+                    {
+                        "id": "4ad725ae-ee80-5133-870a-3640ce7418e2",
+                        "label": "Effects",
+                        "parent_id": "cee9c65f-beef-5a90-8f32-34dc4048f4bc",
+                        "importance": 3,
+                        "difficulty": 2,
+                    },
+                    {
+                        "id": "eb315a8a-1fb0-5829-b114-f5d805e4c26c",
+                        "label": "State",
+                        "parent_id": "cee9c65f-beef-5a90-8f32-34dc4048f4bc",
+                        "importance": 3,
+                        "difficulty": 3,
+                    },
+                ]
+            }
+        ],
+    )
+    elapsed_ms: int = Field(
+        description="Elapsed time for skill extraction in milliseconds.",
+        ge=0,
+        examples=[1200],
+    )
 
 
 class CompletionRequest(BaseModel):

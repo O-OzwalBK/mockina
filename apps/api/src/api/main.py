@@ -5,7 +5,7 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from http import HTTPStatus
 from time import perf_counter
-from typing import Any, cast
+from typing import Any
 from urllib.parse import urlparse
 
 from fastapi import Depends, FastAPI, Request
@@ -27,9 +27,12 @@ from llm_gateway import (
     RetryingLLM,
 )
 from pydantic import ValidationError
+from skill_graph import InMemorySkillStore, SkillGraphError, SkillStore
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.cors import CORSMiddleware
 
+from api.dependencies import get_llm
+from api.dev_skills import router as dev_skills_router
 from api.models import CompletionRequest, CompletionResponse, ErrorResponse, ModelInfoResponse
 from api.settings import ApiSettings
 
@@ -55,12 +58,6 @@ ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
 }
 
 
-def get_llm(request: Request) -> LLM:
-    """Return the app-owned model client so tests can replace this dependency."""
-
-    return cast(LLM, request.app.state.llm)
-
-
 def describe_settings_problem(error: ValidationError) -> str:
     """List invalid LLM setting names and rules without repeating their values."""
 
@@ -76,19 +73,26 @@ def describe_settings_problem(error: ValidationError) -> str:
     return "\n".join(lines)
 
 
-def create_app(settings: ApiSettings | None = None, llm: LLM | None = None) -> FastAPI:
+def create_app(
+    settings: ApiSettings | None = None,
+    llm: LLM | None = None,
+    skill_store: SkillStore | None = None,
+) -> FastAPI:
     """Build the API with configurable browser settings and an optional test model.
 
     `settings` holds the API's own options (CORS origins, dev routes). When it is None they are
     read from the environment and .env, even if `llm` is given, so tests pass `settings`.
-     `llm` replaces the real model: when it is given, the model settings (LLM_*) are not read
-    at all and no network client is built.
+    `llm` replaces the real model: when it is given, the model settings (LLM_*) are not read
+    at all and no network client is built. `skill_store` replaces the in-memory catalog.
     """
 
     api_settings = settings if settings is not None else ApiSettings()
 
     @asynccontextmanager
     async def lifespan(application: FastAPI) -> AsyncGenerator[None, None]:
+        application.state.skill_store = (
+            skill_store if skill_store is not None else InMemorySkillStore()
+        )
         if llm is not None:
             application.state.llm = llm
             yield
@@ -186,6 +190,20 @@ def create_app(settings: ApiSettings | None = None, llm: LLM | None = None) -> F
             },
         )
 
+    @app.exception_handler(SkillGraphError)
+    async def skill_graph_error_handler(_: Request, error: SkillGraphError) -> JSONResponse:
+        return JSONResponse(
+            status_code=502,
+            content={
+                "error": {
+                    "code": "llm_bad_response",
+                    "message": "The model could not produce a valid skill graph.",
+                    "retryable": False,
+                    "details": {},
+                }
+            },
+        )
+
     @app.exception_handler(RequestValidationError)
     async def request_validation_error_handler(
         _: Request, error: RequestValidationError
@@ -234,6 +252,7 @@ def create_app(settings: ApiSettings | None = None, llm: LLM | None = None) -> F
         )
 
     if api_settings.dev_routes:
+        app.include_router(dev_skills_router)
 
         @app.post(
             "/v1/dev/complete",

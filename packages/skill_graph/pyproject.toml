@@ -1,7 +1,7 @@
 [project]
 name = "skill-graph"
 version = "0.1.0"
-description = "Add your description here"
+description = "Extract stable, validated skill graphs from job descriptions."
 readme = "README.md"
 authors = [
     { name = "Mahakaal", email = "59462639+O-ozwal@users.noreply.github.com" }
@@ -9,6 +9,7 @@ authors = [
 requires-python = ">=3.12"
 dependencies = [
     "contracts",
+    "llm-gateway",
 ]
 
 [build-system]
@@ -17,3 +18,4 @@ build-backend = "uv_build"
 
 [tool.uv.sources]
 contracts = { workspace = true }
+llm-gateway = { workspace = true }

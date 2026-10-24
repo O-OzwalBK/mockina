@@ -17,10 +17,12 @@ EXPECTED_PUBLIC_NAMES = {
     "LLMSettings",
     "LLMTimeoutError",
     "OpenAICompatibleLLM",
+    "ReplyNotJsonError",
     "RetryingLLM",
     "check_context_budget",
     "estimate_prompt_tokens",
     "estimate_tokens",
+    "parse_json_reply",
 }
 
 EXPORTED = [getattr(llm_gateway, name) for name in llm_gateway.__all__]

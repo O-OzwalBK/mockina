@@ -1044,10 +1044,14 @@ version = "0.1.0"
 source = { editable = "packages/skill_graph" }
 dependencies = [
     { name = "contracts" },
+    { name = "llm-gateway" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "contracts", editable = "packages/contracts" }]
+requires-dist = [
+    { name = "contracts", editable = "packages/contracts" },
+    { name = "llm-gateway", editable = "packages/llm_gateway" },
+]
 
 [[package]]
 name = "starlette"

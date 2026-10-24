@@ -11,6 +11,7 @@ from contracts.evaluation import Evaluation, MetricScore
 from contracts.interviewer import Question
 from contracts.preparation import Preparation, PreparationCreate
 from contracts.session import InterviewSession, SessionStatus
+from contracts.skills import SkillGraph, SkillNode, normalize, normalize_sorted, skill_id
 from contracts.transcript import Answer, WordTiming
 from contracts.turn import Turn, TurnStatus
 
@@ -24,9 +25,14 @@ __all__ = [
     "PreparationCreate",
     "Question",
     "SessionStatus",
+    "SkillGraph",
+    "SkillNode",
     "Turn",
     "TurnStatus",
     "UtcDatetime",
     "WordTiming",
+    "normalize",
+    "normalize_sorted",
+    "skill_id",
     "utc_now",
 ]

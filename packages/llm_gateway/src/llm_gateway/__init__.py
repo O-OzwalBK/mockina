@@ -20,6 +20,7 @@ from llm_gateway.errors import (
     LLMTimeoutError,
 )
 from llm_gateway.interface import LLM
+from llm_gateway.json_reply import ReplyNotJsonError, parse_json_reply
 from llm_gateway.models import ChatMessage, Completion
 from llm_gateway.retry import RetryingLLM
 from llm_gateway.settings import LLMSettings
@@ -39,8 +40,10 @@ __all__ = [
     "LLMSettings",
     "LLMTimeoutError",
     "OpenAICompatibleLLM",
+    "ReplyNotJsonError",
     "RetryingLLM",
     "check_context_budget",
     "estimate_prompt_tokens",
     "estimate_tokens",
+    "parse_json_reply",
 ]

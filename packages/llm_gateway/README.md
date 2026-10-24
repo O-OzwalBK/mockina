@@ -62,32 +62,32 @@ async def grade(llm: LLM, answer: str) -> str:
 All settings are environment variables, read once at startup. A bad value stops the app
 immediately with a message that names the variable.
 
-| Variable | Required | Default | Meaning |
-|---|---|---|---|
-| `LLM_BASE_URL` | yes | | Address of the API, including the `/v1` part. The gateway adds `/chat/completions`. |
-| `LLM_MODEL` | yes | | The model's name exactly as the provider lists it. |
-| `LLM_API_KEY` | no | none | Secret key from the provider. Leave it empty for local servers that need none. Never shown when settings are printed. |
-| `LLM_CONTEXT_TOKENS` | no | `8192` | Tokens the model can handle in one request, prompt and reply together. At least 512. |
-| `LLM_MAX_OUTPUT_TOKENS` | no | `1024` | Longest reply to ask for. Must be smaller than the context size. |
-| `LLM_TIMEOUT_SECONDS` | no | `60` | Seconds to wait for the provider on each attempt. |
-| `LLM_MAX_RETRIES` | no | `2` | Extra attempts after a temporary failure, from 0 to 5. |
+| Variable                | Required | Default | Meaning                                                                                                               |
+| ----------------------- | -------- | ------- | --------------------------------------------------------------------------------------------------------------------- |
+| `LLM_BASE_URL`          | yes      |         | Address of the API, including the `/v1` part. The gateway adds `/chat/completions`.                                   |
+| `LLM_MODEL`             | yes      |         | The model's name exactly as the provider lists it.                                                                    |
+| `LLM_API_KEY`           | no       | none    | Secret key from the provider. Leave it empty for local servers that need none. Never shown when settings are printed. |
+| `LLM_CONTEXT_TOKENS`    | no       | `8192`  | Tokens the model can handle in one request, prompt and reply together. At least 512.                                  |
+| `LLM_MAX_OUTPUT_TOKENS` | no       | `1024`  | Longest reply to ask for. Must be smaller than the context size.                                                      |
+| `LLM_TIMEOUT_SECONDS`   | no       | `60`    | Seconds to wait for the provider on each attempt.                                                                     |
+| `LLM_MAX_RETRIES`       | no       | `2`     | Extra attempts after a temporary failure, from 0 to 5.                                                                |
 
 ## Errors
 
 Callers decide what to do with each one. `retryable` says whether trying the same request
 again can help, and `RetryingLLM` acts on it.
 
-| Error | Meaning | Retried |
-|---|---|---|
-| `LLMError` | Base class of everything below. | |
-| `LLMConnectionError` | The server could not be reached: it is down, the address is wrong, or there is no network. | yes |
-| `LLMTimeoutError` | The server did not answer within `LLM_TIMEOUT_SECONDS`. | yes |
-| `LLMRateLimitError` | The provider said to slow down (HTTP 429). It may carry `retry_after`, which is obeyed. | yes |
-| `LLMServerError` | The provider had a problem on its side (HTTP 500 and above). | yes |
-| `LLMAuthError` | The API key is missing or wrong (HTTP 401 or 403). | no |
-| `LLMRequestError` | The provider rejected the request itself, for example an unknown model name. | no |
-| `LLMResponseError` | The provider answered, but the reply was not in the expected shape or had no text. | no |
-| `ContextBudgetExceededError` | The prompt is too long for the context window, leaving no room for the reply. | no |
+| Error                        | Meaning                                                                                    | Retried |
+| ---------------------------- | ------------------------------------------------------------------------------------------ | ------- |
+| `LLMError`                   | Base class of everything below.                                                            |         |
+| `LLMConnectionError`         | The server could not be reached: it is down, the address is wrong, or there is no network. | yes     |
+| `LLMTimeoutError`            | The server did not answer within `LLM_TIMEOUT_SECONDS`.                                    | yes     |
+| `LLMRateLimitError`          | The provider said to slow down (HTTP 429). It may carry `retry_after`, which is obeyed.    | yes     |
+| `LLMServerError`             | The provider had a problem on its side (HTTP 500 and above).                               | yes     |
+| `LLMAuthError`               | The API key is missing or wrong (HTTP 401 or 403).                                         | no      |
+| `LLMRequestError`            | The provider rejected the request itself, for example an unknown model name.               | no      |
+| `LLMResponseError`           | The provider answered, but the reply was not in the expected shape or had no text.         | no      |
+| `ContextBudgetExceededError` | The prompt is too long for the context window, leaving no room for the reply.              | no      |
 
 ## Testing code that uses a model
 
@@ -135,6 +135,19 @@ production code has no use for it.
 - **No overall time limit yet.** Each attempt can use the full timeout, so the worst case
   for one call is `(LLM_MAX_RETRIES + 1)` timeouts plus the pauses, about three minutes
   with the defaults. Lower `LLM_TIMEOUT_SECONDS` or `LLM_MAX_RETRIES` for interactive use.
+
+## Reading JSON from a model reply
+
+`parse_json_reply(text)` is a shared reader for packages whose prompts request JSON. It tries the
+entire reply first, then fenced code blocks, then balanced objects and arrays in surrounding prose.
+The scanner understands quoted strings and escapes, and returns the first candidate that parses.
+It returns any JSON value; the calling package is responsible for validating its expected shape.
+
+If no candidate parses, it raises `ReplyNotJsonError`, a `ValueError` that is deliberately not an
+`LLMError`. The message never includes model text. Transport retries therefore do not repeat an
+identical parse failure; a package may choose a bounded repair request when its domain warrants it.
+The helper accepts reply text, not a `Completion`, so each caller decides how to handle
+`finish_reason="length"` before parsing.
 
 ## Development
 

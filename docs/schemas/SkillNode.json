@@ -1,0 +1,89 @@
+{
+  "additionalProperties": false,
+  "description": "One category, intermediate node, or leaf in a preparation's skill tree.",
+  "properties": {
+    "difficulty": {
+      "anyOf": [
+        {
+          "maximum": 5,
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Expected difficulty from 1 to 5 for this skill in this preparation; set on leaves only.",
+      "examples": [
+        3
+      ],
+      "title": "Difficulty"
+    },
+    "id": {
+      "description": "Stable UUIDv5 identity derived from this node's root and normalized label.",
+      "examples": [
+        "8dd8e540-014e-52e3-8f87-0fd42abe1678"
+      ],
+      "maxLength": 100,
+      "minLength": 1,
+      "title": "Id",
+      "type": "string"
+    },
+    "importance": {
+      "anyOf": [
+        {
+          "maximum": 5,
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Importance from 1 to 5 for this skill in this preparation; set on leaves only.",
+      "examples": [
+        4
+      ],
+      "title": "Importance"
+    },
+    "label": {
+      "description": "Short display label for this category or technical skill.",
+      "examples": [
+        "React hooks"
+      ],
+      "maxLength": 120,
+      "minLength": 1,
+      "title": "Label",
+      "type": "string"
+    },
+    "parent_id": {
+      "anyOf": [
+        {
+          "maxLength": 100,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "ID of this node's parent, or None when this node is a root category.",
+      "examples": [
+        "a35c1455-ea0c-50a7-a5cc-073ac509bfbb"
+      ],
+      "title": "Parent Id"
+    }
+  },
+  "required": [
+    "id",
+    "label",
+    "parent_id",
+    "importance",
+    "difficulty"
+  ],
+  "title": "SkillNode",
+  "type": "object"
+}
