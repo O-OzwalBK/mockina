@@ -9,6 +9,7 @@ authors = [
 requires-python = ">=3.12"
 dependencies = [
     "contracts",
+    "llm-gateway",
 ]
 
 [build-system]
@@ -17,3 +18,4 @@ build-backend = "uv_build"
 
 [tool.uv.sources]
 contracts = { workspace = true }
+llm-gateway = { workspace = true }
