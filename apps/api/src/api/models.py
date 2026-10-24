@@ -1,13 +1,20 @@
 from typing import Any
 
-from contracts import SkillGraph
-from contracts.preparation import MAX_JOB_DESCRIPTION_LENGTH, MAX_JOB_TITLE_LENGTH
+from contracts import InterviewConfig, Question, SkillGraph, Turn
+from contracts.preparation import (
+    MAX_JOB_DESCRIPTION_LENGTH,
+    MAX_JOB_TITLE_LENGTH,
+    MAX_RESUME_LENGTH,
+)
+from contracts.session import MAX_TURNS_PER_SESSION
+from engine import InterviewFinished
 from llm_gateway import ChatMessage
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 MAX_MESSAGES = 100
 MAX_MESSAGE_CHARS = 20_000
 MAX_TOTAL_MESSAGE_CHARS = 100_000
+MAX_EARLIER_QUESTIONS = 500
 
 
 class SkillExtractionRequest(BaseModel):
@@ -74,6 +81,126 @@ class SkillExtractionResponse(BaseModel):
         ge=0,
         examples=[1200],
     )
+
+
+class NextTurnRequest(BaseModel):
+    """One engine call supplied by a developer; nothing is stored."""
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    job_title: str = Field(
+        description="Short title for the target job.",
+        min_length=1,
+        max_length=MAX_JOB_TITLE_LENGTH,
+        examples=["Junior React Developer"],
+    )
+    job_description: str = Field(
+        description="The job description the question should be about.",
+        min_length=1,
+        max_length=MAX_JOB_DESCRIPTION_LENGTH,
+        examples=["Build accessible interfaces with React and TypeScript."],
+    )
+    skill_graph: SkillGraph = Field(
+        description="The preparation's validated skill tree to ask about.",
+        examples=[
+            {
+                "nodes": [
+                    {
+                        "id": "cee9c65f-beef-5a90-8f32-34dc4048f4bc",
+                        "label": "React",
+                        "parent_id": None,
+                        "importance": None,
+                        "difficulty": None,
+                    },
+                    {
+                        "id": "8dd8e540-014e-52e3-8f87-0fd42abe1678",
+                        "label": "Hooks",
+                        "parent_id": "cee9c65f-beef-5a90-8f32-34dc4048f4bc",
+                        "importance": 4,
+                        "difficulty": 3,
+                    },
+                    {
+                        "id": "4ad725ae-ee80-5133-870a-3640ce7418e2",
+                        "label": "Effects",
+                        "parent_id": "cee9c65f-beef-5a90-8f32-34dc4048f4bc",
+                        "importance": 3,
+                        "difficulty": 2,
+                    },
+                    {
+                        "id": "eb315a8a-1fb0-5829-b114-f5d805e4c26c",
+                        "label": "State",
+                        "parent_id": "cee9c65f-beef-5a90-8f32-34dc4048f4bc",
+                        "importance": 3,
+                        "difficulty": 3,
+                    },
+                ]
+            }
+        ],
+    )
+    interview_config: InterviewConfig = Field(
+        description="The resolved end rule for this simulated session.",
+        examples=[{"rule": "question_count", "count": 5}],
+    )
+    resume: str | None = Field(
+        default=None,
+        description="Optional resume text used only to personalise a question.",
+        min_length=1,
+        max_length=MAX_RESUME_LENGTH,
+        examples=["Built a task tracker with React and TypeScript."],
+    )
+    turns: list[Turn] = Field(
+        default_factory=list,
+        max_length=MAX_TURNS_PER_SESSION,
+        description="The simulated session's turns so far, in order.",
+        examples=[[]],
+    )
+    earlier_questions: list[Question] = Field(
+        default_factory=list,
+        max_length=MAX_EARLIER_QUESTIONS,
+        description="Questions asked in earlier sessions of the same preparation.",
+        examples=[
+            [
+                {
+                    "text": "What is a closure?",
+                    "skill_id": "javascript-closures",
+                    "difficulty": 2,
+                }
+            ]
+        ],
+    )
+
+
+class NextTurnResponse(BaseModel):
+    """The engine's outcome and elapsed time for a developer request."""
+
+    question: Question | None = Field(
+        default=None,
+        description="The next question, or None when the interview is finished.",
+        examples=[
+            {
+                "text": "How does React batch state updates?",
+                "skill_id": "8dd8e540-014e-52e3-8f87-0fd42abe1678",
+                "difficulty": 2,
+            }
+        ],
+    )
+    finished: InterviewFinished | None = Field(
+        default=None,
+        description="The finished reason, or None when a question was produced.",
+        examples=[{"reason": "question_count_reached"}],
+    )
+    elapsed_ms: int = Field(
+        ge=0,
+        description="Elapsed time for the engine call in milliseconds.",
+        examples=[900],
+    )
+
+    @model_validator(mode="after")
+    def check_exactly_one_outcome(self) -> "NextTurnResponse":
+        """Exactly one of a question or a finished result is present."""
+        if (self.question is None) == (self.finished is None):
+            raise ValueError("exactly one of question or finished must be present")
+        return self
 
 
 class CompletionRequest(BaseModel):

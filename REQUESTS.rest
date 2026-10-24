@@ -55,3 +55,47 @@ Content-Type: application/json
 	"job_title": "Junior React Developer",
 	"job_description": "Build accessible user interfaces with React and TypeScript."
 }
+
+### Ask the engine for the next question (requires API_DEV_ROUTES=true)
+POST {{baseUrl}}/v1/dev/next-question
+Content-Type: application/json
+
+{
+	"job_title": "Junior React Developer",
+	"job_description": "Build accessible user interfaces with React and TypeScript.",
+	"skill_graph": {
+		"nodes": [
+			{
+				"id": "cee9c65f-beef-5a90-8f32-34dc4048f4bc",
+				"label": "React",
+				"parent_id": null,
+				"importance": null,
+				"difficulty": null
+			},
+			{
+				"id": "8dd8e540-014e-52e3-8f87-0fd42abe1678",
+				"label": "Hooks",
+				"parent_id": "cee9c65f-beef-5a90-8f32-34dc4048f4bc",
+				"importance": 4,
+				"difficulty": 3
+			},
+			{
+				"id": "4ad725ae-ee80-5133-870a-3640ce7418e2",
+				"label": "Effects",
+				"parent_id": "cee9c65f-beef-5a90-8f32-34dc4048f4bc",
+				"importance": 3,
+				"difficulty": 2
+			},
+			{
+				"id": "eb315a8a-1fb0-5829-b114-f5d805e4c26c",
+				"label": "State",
+				"parent_id": "cee9c65f-beef-5a90-8f32-34dc4048f4bc",
+				"importance": 3,
+				"difficulty": 3
+			}
+		]
+	},
+	"turns": [],
+	"earlier_questions": [],
+	"interview_config": {"rule": "question_count", "count": 3}
+}

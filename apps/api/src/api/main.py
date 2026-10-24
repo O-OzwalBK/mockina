@@ -33,6 +33,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.cors import CORSMiddleware
 
 from api.dependencies import get_llm
+from api.dev_engine import router as dev_engine_router
 from api.dev_skills import router as dev_skills_router
 from api.models import CompletionRequest, CompletionResponse, ErrorResponse, ModelInfoResponse
 from api.settings import ApiSettings
@@ -255,6 +256,7 @@ def create_app(
 
     if api_settings.dev_routes:
         app.include_router(dev_skills_router)
+        app.include_router(dev_engine_router)
 
         @app.post(
             "/v1/dev/complete",
