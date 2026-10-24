@@ -90,7 +90,7 @@ def _catalog_text(entries: Sequence[SkillCatalogEntry]) -> str:
     )
 
 
-def _fenced_data(value: str) -> str:
+def fenced_data(value: str) -> str:
     """Wrap untrusted text in a fence longer than any backtick run it contains."""
     longest_run = 0
     current_run = 0
@@ -122,7 +122,8 @@ def build_prompt(
             f"{MAX_PROMPT_LABEL_LENGTH} characters. A label may appear only once within a "
             "category; the same label under two parents in one category collides. Use importance "
             "and expected difficulty as whole numbers from 1 to 5. Reuse a catalog label verbatim "
-            "when it means the same skill. Return only the JSON object in this shape, with no "
+            "when it means the same skill, and keep it under the same category. Return only the "
+            "JSON object in this shape, with no "
             "prose before or after it and no markdown:\n"
             '{"categories":[{"label":"category","skills":[{"label":"skill",'
             '"importance":3,"difficulty":2},{"label":"intermediate skill","skills":'
@@ -135,11 +136,11 @@ def build_prompt(
         role="user",
         content=(
             "Job title (untrusted data):\n"
-            f"{_fenced_data(job_title)}\n\n"
+            f"{fenced_data(job_title)}\n\n"
             "Job description (untrusted data):\n"
-            f"{_fenced_data(job_description)}\n\n"
+            f"{fenced_data(job_description)}\n\n"
             "Existing catalog labels (untrusted data):\n"
-            f"{_fenced_data(catalog_data)}"
+            f"{fenced_data(catalog_data)}"
         ),
     )
     return system_message, user_message

@@ -155,4 +155,5 @@ def test_prompt_states_the_label_length_and_uniqueness_rules():
 
     assert "80 characters" in lowered
     assert "only once within a category" in lowered
+    assert "same category" in lowered
     assert "no prose before or after" in lowered

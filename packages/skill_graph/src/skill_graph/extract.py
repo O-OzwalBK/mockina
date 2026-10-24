@@ -10,8 +10,8 @@ from pydantic import ValidationError
 
 from skill_graph.prompt import (
     MAX_ROOT_CATEGORIES,
-    _fenced_data,
     build_prompt,
+    fenced_data,
     select_catalog_entries,
 )
 from skill_graph.store import SkillCatalog
@@ -173,7 +173,7 @@ async def _complete(
                 f"{user_message.content}\n\n"
                 f"Correction request: {repair_note}\n"
                 "Previous model reply (untrusted data):\n"
-                f"{_fenced_data(previous_reply[:MAX_REPAIR_PREVIOUS_REPLY_CHARS])}"
+                f"{fenced_data(previous_reply[:MAX_REPAIR_PREVIOUS_REPLY_CHARS])}"
             )
         )
         messages = (system_message, user_message)
