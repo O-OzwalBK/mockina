@@ -1,6 +1,6 @@
 from typing import Any
 
-from contracts import InterviewConfig, Question, SkillGraph, Turn
+from contracts import Answer, Evaluation, InterviewConfig, Question, SkillGraph, Turn
 from contracts.preparation import (
     MAX_JOB_DESCRIPTION_LENGTH,
     MAX_JOB_TITLE_LENGTH,
@@ -201,6 +201,75 @@ class NextTurnResponse(BaseModel):
         if (self.question is None) == (self.finished is None):
             raise ValueError("exactly one of question or finished must be present")
         return self
+
+
+class GradeRequest(BaseModel):
+    """One evaluator call supplied by a developer; nothing is stored."""
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    job_title: str = Field(
+        description="Short title for the target job, used only as grading context.",
+        min_length=1,
+        max_length=MAX_JOB_TITLE_LENGTH,
+        examples=["Junior React Developer"],
+    )
+    question: Question = Field(
+        description="The question the candidate answered. Its id is copied into the evaluation.",
+        examples=[
+            {
+                "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                "text": "How does React decide when to re-render a component?",
+                "skill_id": "8dd8e540-014e-52e3-8f87-0fd42abe1678",
+                "difficulty": 3,
+            }
+        ],
+    )
+    answer: Answer = Field(
+        description="The spoken answer to grade; only its transcript is graded.",
+        examples=[
+            {
+                "transcript": "React re-renders when state or props change.",
+                "words": [],
+                "duration": 20.0,
+            }
+        ],
+    )
+
+
+class GradeResponse(BaseModel):
+    """The evaluator's result, its duration, and provider token usage."""
+
+    evaluation: Evaluation = Field(
+        description="The four metric scores, their feedback, and the overall summary.",
+        examples=[
+            {
+                "question_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                "correctness": {"score": 7, "feedback": "The main idea is right."},
+                "depth": {"score": 6, "feedback": "One more detail would help."},
+                "clarity": {"score": 8, "feedback": "Well structured."},
+                "relevance": {"score": 7, "feedback": "Answers the question."},
+                "summary": "Add one concrete example.",
+            }
+        ],
+    )
+    elapsed_ms: int = Field(
+        ge=0,
+        description="Elapsed time for the evaluator call in milliseconds.",
+        examples=[900],
+    )
+    prompt_tokens: int | None = Field(
+        default=None,
+        ge=0,
+        description="Provider-reported prompt tokens for the last grading call, when available.",
+        examples=[400],
+    )
+    completion_tokens: int | None = Field(
+        default=None,
+        ge=0,
+        description="Provider-reported reply tokens for the last grading call, when available.",
+        examples=[120],
+    )
 
 
 class CompletionRequest(BaseModel):

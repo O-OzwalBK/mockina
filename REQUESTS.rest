@@ -111,3 +111,22 @@ Content-Type: application/json
 	"earlier_questions": [],
 	"interview_config": {"rule": "question_count", "count": 3}
 }
+
+### Grade one interview answer (requires API_DEV_ROUTES=true)
+POST {{baseUrl}}/v1/dev/grade
+Content-Type: application/json
+
+{
+	"job_title": "Junior React Developer",
+	"question": {
+		"id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+		"text": "How does React decide when to re-render a component?",
+		"skill_id": "8dd8e540-014e-52e3-8f87-0fd42abe1678",
+		"difficulty": 3
+	},
+	"answer": {
+		"transcript": "React re-renders when state or props change. It compares the new element tree with the previous one and updates only what differs.",
+		"words": [],
+		"duration": 20.0
+	}
+}
