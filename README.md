@@ -55,7 +55,10 @@ Run the API in development mode:
 cd apps/api
 uv run fastapi dev src/api/main.py
 ```
-
+or you from the root folder
+```
+uv run --directory apps/api fastapi dev src/api/main.py
+```
 Then open http://127.0.0.1:8000/docs.
 
 ## Documentation
