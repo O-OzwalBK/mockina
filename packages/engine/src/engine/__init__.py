@@ -8,9 +8,11 @@ text. Import public names from here, for example `from engine import FinishedRea
 
 from engine.errors import UnusableQuestionError
 from engine.results import EngineOutcome, FinishedReason, InterviewFinished
+from engine.settings import EngineSettings
 
 __all__ = [
     "EngineOutcome",
+    "EngineSettings",
     "FinishedReason",
     "InterviewFinished",
     "UnusableQuestionError",

@@ -167,12 +167,14 @@ source = { editable = "packages/engine" }
 dependencies = [
     { name = "contracts" },
     { name = "llm-gateway" },
+    { name = "pydantic-settings" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "contracts", editable = "packages/contracts" },
     { name = "llm-gateway", editable = "packages/llm_gateway" },
+    { name = "pydantic-settings", specifier = ">=2.15.0" },
 ]
 
 [[package]]
