@@ -161,3 +161,101 @@ def test_openapi_documents_the_dev_skill_route_and_error_responses():
         "The validated skill graph and extraction time."
     )
     assert {"413", "422", "500", "502", "503", "504"}.issubset(operation["responses"])
+
+
+RAW_PATH = "/v1/dev/extract-skills/raw?job_title=Junior%20React%20Developer"
+PLAIN_TEXT = {"Content-Type": "text/plain; charset=utf-8"}
+
+
+def test_raw_skill_extraction_accepts_a_multiline_plain_text_body():
+    """A pasted job description with real line breaks needs no JSON escaping."""
+    fake = FakeLLM(Completion(text=json.dumps(valid_reply()), model="fake-model"))
+    description = "About the job\nBuild accessible React interfaces.\nWork with hooks."
+    with TestClient(build_app(fake)) as client:
+        response = client.post(RAW_PATH, content=description, headers=PLAIN_TEXT)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body["graph"]["nodes"]) == 4
+    assert isinstance(body["elapsed_ms"], int)
+    assert len(fake.calls) == 1
+
+
+def test_raw_skill_extraction_rejects_a_blank_body_without_calling_the_model():
+    """A body that is only whitespace is an invalid request, not a wasted model call."""
+    fake = FakeLLM("unused")
+    with TestClient(build_app(fake)) as client:
+        response = client.post(RAW_PATH, content="  \n\t  ", headers=PLAIN_TEXT)
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "invalid_request"
+    assert fake.calls == []
+
+
+def test_raw_skill_extraction_rejects_an_oversized_body_without_echoing_it():
+    """The same description limit as the JSON route applies, and the body is not returned."""
+    marker = "private-description-marker"
+    body = marker + "x" * 20_000
+    with TestClient(build_app(FakeLLM("unused"))) as client:
+        response = client.post(RAW_PATH, content=body, headers=PLAIN_TEXT)
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "invalid_request"
+    assert marker not in response.text
+
+
+def test_raw_skill_extraction_requires_a_job_title():
+    """The title is a required query parameter, so a body alone cannot start extraction."""
+    with TestClient(build_app(FakeLLM("unused"))) as client:
+        response = client.post(
+            "/v1/dev/extract-skills/raw",
+            content="Build React interfaces.",
+            headers=PLAIN_TEXT,
+        )
+
+    assert response.status_code == 422
+
+
+def test_raw_skill_route_is_hidden_when_developer_routes_are_disabled():
+    """The plain-text route disappears from routing and OpenAPI with the other dev routes."""
+    with TestClient(build_app(FakeLLM("unused"), dev_routes=False)) as client:
+        response = client.post(RAW_PATH, content="Build React interfaces.", headers=PLAIN_TEXT)
+        schema = client.get("/openapi.json").json()
+
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "not_found"
+    assert "/v1/dev/extract-skills/raw" not in schema["paths"]
+
+
+def test_raw_skill_logs_never_contain_the_pasted_description(caplog):
+    """The plain-text route follows the same metadata-only logging rule."""
+    marker = "private-description-marker"
+    caplog.set_level(logging.INFO, logger="api.dev_skills")
+    fake = FakeLLM(Completion(text=json.dumps(valid_reply()), model="fake-model"))
+
+    with TestClient(build_app(fake)) as client:
+        response = client.post(
+            RAW_PATH,
+            content=f"About the job\n{marker}",
+            headers=PLAIN_TEXT,
+        )
+
+    assert response.status_code == 200
+    assert "model_call outcome=ok model=fake-model" in caplog.text
+    assert marker not in caplog.text
+
+
+def test_openapi_documents_the_raw_route_query_and_plain_text_body():
+    """The raw route documents its title parameter, text/plain body, and error statuses."""
+    with TestClient(build_app(FakeLLM("unused"))) as client:
+        schema = client.get("/openapi.json").json()
+
+    operation = schema["paths"]["/v1/dev/extract-skills/raw"]["post"]
+    assert operation["summary"] == "Extract a job's technical skill graph from plain text"
+    assert operation["responses"]["200"]["description"] == (
+        "The validated skill graph and extraction time."
+    )
+    assert "text/plain" in operation["requestBody"]["content"]
+    title = next(item for item in operation["parameters"] if item["name"] == "job_title")
+    assert title["required"] is True
+    assert {"413", "422", "500", "502", "503", "504"}.issubset(operation["responses"])

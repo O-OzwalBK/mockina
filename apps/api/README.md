@@ -20,6 +20,10 @@ The request uses the same title and description limits as `PreparationCreate` an
 fields. The endpoint uses the app's configured `LLM` and in-memory catalog; tests can replace both
 through FastAPI dependency overrides.
 
+`POST /v1/dev/extract-skills/raw?job_title=...` takes the job description as a `text/plain` body,
+so a description pasted from a job board needs no JSON escaping at all. It applies the same limits
+and returns the same response as the JSON route.
+
 `POST /v1/dev/complete` sends a supplied conversation to the model, and `GET /v1/dev/model` reports
 non-secret configuration details. These are also developer-only routes.
 

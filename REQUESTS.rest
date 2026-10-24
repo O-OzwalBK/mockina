@@ -56,6 +56,18 @@ Content-Type: application/json
 	"job_description": "Build accessible user interfaces with React and TypeScript."
 }
 
+### Extract from a pasted job description, with no JSON escaping
+### Paste the whole description under this line, line breaks and all.
+POST {{baseUrl}}/v1/dev/extract-skills/raw?job_title=Junior%20Software%20Engineer
+Content-Type: text/plain; charset=utf-8
+
+About the job
+Junior Software Engineer (Node.js) Zagreb | Hybrid
+F24 is Europe's leading crisis management SaaS platform, trusted by governments,
+airlines, banks, and Fortune 500s in over 100 countries.
+Tech Stack: Node.js | TypeScript | Nest/Next | RabbitMQ | Kafka | Redis | Docker
+
+
 ### Ask the engine for the next question (requires API_DEV_ROUTES=true)
 POST {{baseUrl}}/v1/dev/next-question
 Content-Type: application/json
