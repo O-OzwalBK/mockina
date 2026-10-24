@@ -4,7 +4,7 @@ from contracts import Answer, Question
 from llm_gateway import ChatMessage
 
 
-def _fenced_data(value: str) -> str:
+def fenced_data(value: str) -> str:
     """Wrap untrusted text in a fence longer than any backtick run it contains."""
     longest_run = 0
     current_run = 0
@@ -57,15 +57,15 @@ def build_messages(
         content="\n".join(
             [
                 "Job title (untrusted data):",
-                _fenced_data(job_title),
+                fenced_data(job_title),
                 "",
                 "Question (untrusted data):",
-                _fenced_data(question.text),
+                fenced_data(question.text),
                 "",
                 f"Difficulty: {question.difficulty} of 5 (context only; absolute 0-10 scale).",
                 "",
                 "Answer transcript (untrusted data):",
-                _fenced_data(answer.transcript),
+                fenced_data(answer.transcript),
             ]
         ),
     )

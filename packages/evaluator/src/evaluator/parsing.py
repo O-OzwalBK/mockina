@@ -9,6 +9,7 @@ from pydantic import ValidationError
 
 METRICS = ("correctness", "depth", "clarity", "relevance")
 
+FAILURE_INVALID_JSON = "invalid_json"
 FAILURE_INVALID_JSON_SHAPE = "invalid_json_shape"
 FAILURE_MISSING_METRIC = "missing_metric"
 FAILURE_MISSING_SCORE = "missing_score"
