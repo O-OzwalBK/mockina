@@ -5,6 +5,7 @@ from api.main import LLM_ERROR_MAP, create_app, get_llm
 from api.models import MAX_MESSAGE_CHARS
 from api.settings import ApiSettings
 from engine import UnusableQuestionError
+from evaluator import EvaluationError
 from fastapi.testclient import TestClient
 from llm_gateway import (
     ContextBudgetExceededError,
@@ -141,6 +142,15 @@ ERROR_CASES = [
         UnusableQuestionError(
             "The model did not produce a usable question.",
             failures=("too_long",),
+            attempts=2,
+        ),
+        502,
+        "llm_bad_response",
+    ),
+    (
+        EvaluationError(
+            "The model did not produce a usable evaluation.",
+            failures=("invalid_score",),
             attempts=2,
         ),
         502,

@@ -9,6 +9,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 from engine import UnusableQuestionError
+from evaluator import EvaluationError
 from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -47,6 +48,7 @@ LLM_ERROR_MAP: dict[type[LLMError], tuple[int, str]] = {
     LLMServerError: (502, "llm_server_error"),
     LLMResponseError: (502, "llm_bad_response"),
     UnusableQuestionError: (502, "llm_bad_response"),
+    EvaluationError: (502, "llm_bad_response"),
     LLMAuthError: (502, "llm_auth_failed"),
     LLMRequestError: (502, "llm_rejected_request"),
 }
