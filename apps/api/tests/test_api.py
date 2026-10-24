@@ -4,6 +4,7 @@ import pytest
 from api.main import LLM_ERROR_MAP, create_app, get_llm
 from api.models import MAX_MESSAGE_CHARS
 from api.settings import ApiSettings
+from engine import UnusableQuestionError
 from fastapi.testclient import TestClient
 from llm_gateway import (
     ContextBudgetExceededError,
@@ -136,6 +137,15 @@ ERROR_CASES = [
     (LLMConnectionError("unreachable"), 502, "llm_unreachable"),
     (LLMServerError("server error"), 502, "llm_server_error"),
     (LLMResponseError("bad response"), 502, "llm_bad_response"),
+    (
+        UnusableQuestionError(
+            "The model did not produce a usable question.",
+            failures=("too_long",),
+            attempts=2,
+        ),
+        502,
+        "llm_bad_response",
+    ),
     (LLMAuthError("bad provider key"), 502, "llm_auth_failed"),
     (LLMRequestError("provider rejected request"), 502, "llm_rejected_request"),
 ]
