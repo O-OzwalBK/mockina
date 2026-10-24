@@ -5,6 +5,10 @@ from typing import ClassVar
 from llm_gateway import LLMError
 
 
+class EmptySkillGraphError(ValueError):
+    """The engine was given a skill graph with no leaf skills to ask about."""
+
+
 class UnusableQuestionError(LLMError):
     """The model did not produce a usable question after one corrective retry.
 
