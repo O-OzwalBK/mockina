@@ -11,6 +11,8 @@ MIN_CONTENT_TOKENS = 3
 EXACT_REPEAT = "repeat_exact"
 OVERLAP_REPEAT = "repeat_overlap"
 
+NEGATIONS = frozenset({"not", "no", "never", "without", "except", "neither", "nor"})
+
 # Separate from contracts.skills.STOPWORDS: that set is too short for question text.
 # Negations (not, no, never, without, except, neither, nor) are deliberately absent
 # so that a question meaning the opposite never looks like a repeat of its pair.
@@ -164,6 +166,11 @@ def _overlap(first: Sequence[str], second: Sequence[str]) -> float:
     return len(first_words & second_words) / len(first_words | second_words)
 
 
+def _has_negation(tokens: Sequence[str]) -> bool:
+    """True when a question contains one of the words that reverse its meaning."""
+    return any(token in NEGATIONS for token in tokens)
+
+
 def find_repeat(
     text: str, earlier_questions: Sequence[Question], *, skill_id: str
 ) -> RepeatMatch | None:
@@ -172,7 +179,7 @@ def find_repeat(
     Exact matching covers every earlier question, whatever its skill. Word overlap
     is scoped to the same skill, because similar wording about another skill is a
     different question. Overlap is skipped when either question has fewer than
-    three content words.
+    three content words, and when only one of the two is negated.
     """
     normalized_text = normalize(text)
     for earlier in earlier_questions:
@@ -187,6 +194,8 @@ def find_repeat(
             continue
         earlier_tokens = content_tokens(earlier.text)
         if len(earlier_tokens) < MIN_CONTENT_TOKENS:
+            continue
+        if _has_negation(text_tokens) != _has_negation(earlier_tokens):
             continue
         if _overlap(text_tokens, earlier_tokens) >= REPEAT_THRESHOLD:
             return RepeatMatch(kind=OVERLAP_REPEAT, earlier_question=earlier.text)
