@@ -1,7 +1,7 @@
 [project]
 name = "engine"
 version = "0.1.0"
-description = "Add your description here"
+description = "Decide the next interview question, or say that the interview is over."
 readme = "README.md"
 authors = [
     { name = "Mahakaal", email = "59462639+O-ozwal@users.noreply.github.com" }
