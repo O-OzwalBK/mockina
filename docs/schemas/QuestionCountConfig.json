@@ -1,0 +1,32 @@
+{
+  "additionalProperties": false,
+  "description": "End the interview after a fixed number of questions.",
+  "properties": {
+    "count": {
+      "description": "Number of questions to ask before the interview ends.",
+      "examples": [
+        5
+      ],
+      "maximum": 100,
+      "minimum": 1,
+      "title": "Count",
+      "type": "integer"
+    },
+    "rule": {
+      "const": "question_count",
+      "default": "question_count",
+      "description": "Which end rule this configuration uses.",
+      "examples": [
+        "question_count"
+      ],
+      "title": "Rule",
+      "type": "string"
+    }
+  },
+  "required": [
+    "rule",
+    "count"
+  ],
+  "title": "QuestionCountConfig",
+  "type": "object"
+}

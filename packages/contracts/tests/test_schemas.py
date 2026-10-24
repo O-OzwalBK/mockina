@@ -4,12 +4,15 @@ from contracts.schemas import REQUEST_ONLY_MODELS, all_schemas
 
 EXPECTED_SCHEMAS = {
     "Answer",
+    "AnswerTimeConfig",
     "Evaluation",
     "InterviewSession",
     "MetricScore",
+    "ModelDecidesConfig",
     "Preparation",
     "PreparationCreate",
     "Question",
+    "QuestionCountConfig",
     "SkillGraph",
     "SkillNode",
     "Turn",

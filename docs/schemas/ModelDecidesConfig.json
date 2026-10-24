@@ -1,0 +1,43 @@
+{
+  "additionalProperties": false,
+  "description": "The model decides when to finish, between a minimum and a maximum.",
+  "properties": {
+    "max_questions": {
+      "description": "Largest number of questions the model may ask before code forces a finish.",
+      "examples": [
+        12
+      ],
+      "maximum": 20,
+      "minimum": 2,
+      "title": "Max Questions",
+      "type": "integer"
+    },
+    "min_questions": {
+      "description": "Smallest number of questions before the model may decide to finish.",
+      "examples": [
+        3
+      ],
+      "maximum": 10,
+      "minimum": 1,
+      "title": "Min Questions",
+      "type": "integer"
+    },
+    "rule": {
+      "const": "model_decides",
+      "default": "model_decides",
+      "description": "Which end rule this configuration uses.",
+      "examples": [
+        "model_decides"
+      ],
+      "title": "Rule",
+      "type": "string"
+    }
+  },
+  "required": [
+    "rule",
+    "min_questions",
+    "max_questions"
+  ],
+  "title": "ModelDecidesConfig",
+  "type": "object"
+}

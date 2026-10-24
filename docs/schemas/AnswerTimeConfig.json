@@ -1,0 +1,32 @@
+{
+  "additionalProperties": false,
+  "description": "End the interview once the answers add up to a time limit.",
+  "properties": {
+    "max_seconds": {
+      "description": "Total time spent answering, in seconds, before the interview ends.",
+      "examples": [
+        900
+      ],
+      "maximum": 3600,
+      "minimum": 60,
+      "title": "Max Seconds",
+      "type": "integer"
+    },
+    "rule": {
+      "const": "answer_time",
+      "default": "answer_time",
+      "description": "Which end rule this configuration uses.",
+      "examples": [
+        "answer_time"
+      ],
+      "title": "Rule",
+      "type": "string"
+    }
+  },
+  "required": [
+    "rule",
+    "max_seconds"
+  ],
+  "title": "AnswerTimeConfig",
+  "type": "object"
+}

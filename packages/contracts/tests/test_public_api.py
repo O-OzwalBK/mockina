@@ -6,13 +6,17 @@ from contracts.schemas import public_models
 
 EXPECTED_PUBLIC_NAMES = {
     "Answer",
+    "AnswerTimeConfig",
     "Evaluation",
     "ImmutableModel",
+    "InterviewConfig",
     "InterviewSession",
     "MetricScore",
+    "ModelDecidesConfig",
     "Preparation",
     "PreparationCreate",
     "Question",
+    "QuestionCountConfig",
     "SessionStatus",
     "SkillGraph",
     "SkillNode",
