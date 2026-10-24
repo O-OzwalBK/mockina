@@ -139,9 +139,11 @@ production code has no use for it.
 ## Reading JSON from a model reply
 
 `parse_json_reply(text)` is a shared reader for packages whose prompts request JSON. It tries the
-entire reply first, then fenced code blocks, then balanced objects and arrays in surrounding prose.
-The scanner understands quoted strings and escapes, and returns the first candidate that parses.
-It returns any JSON value; the calling package is responsible for validating its expected shape.
+entire reply first; otherwise it scans the reply for complete top-level objects and arrays and
+returns the **last** one that parses. A model usually reasons or shows a shape example before it
+writes the real answer, so the final value is the useful one. Nested objects inside the answer are
+not treated as separate answers. The scanner understands quoted strings and escapes, and returns
+any JSON value; the calling package is responsible for validating its expected shape.
 
 If no candidate parses, it raises `ReplyNotJsonError`, a `ValueError` that is deliberately not an
 `LLMError`. The message never includes model text. Transport retries therefore do not repeat an

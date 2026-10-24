@@ -13,6 +13,22 @@ def test_parse_json_reply_prefers_a_fenced_json_value_over_surrounding_examples(
     assert parse_json_reply(reply) == {"answer": 42}
 
 
+def test_parse_json_reply_returns_the_last_valid_value_after_reasoning():
+    """Reasoning and shape examples come first; the final answer is the last valid JSON."""
+    reply = (
+        'One example: {"score": 1, "feedback": "example"}\n'
+        "Thinking about the answer...\n"
+        'Final: {"correctness": {"score": 7, "feedback": "good"}}'
+    )
+    assert parse_json_reply(reply) == {"correctness": {"score": 7, "feedback": "good"}}
+
+
+def test_parse_json_reply_returns_the_outer_value_not_a_nested_fragment():
+    """A nested object inside the real answer does not replace the enclosing value."""
+    reply = 'Result: {"outer": {"inner": 1}, "ok": true}'
+    assert parse_json_reply(reply) == {"outer": {"inner": 1}, "ok": True}
+
+
 def test_parse_json_reply_scans_each_balanced_value_until_one_parses():
     """An invalid balanced candidate does not hide a later valid JSON value."""
     assert parse_json_reply('Reasoning {not JSON}; answer: {"answer": 42}') == {"answer": 42}

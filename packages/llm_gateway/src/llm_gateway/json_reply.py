@@ -1,10 +1,8 @@
-"""Read JSON values from replies that may include fences or explanatory prose."""
+"""Read the final JSON value from replies that may include fences or explanatory prose."""
 
 import json
-import re
 from typing import Any
 
-FENCED_BLOCK = re.compile(r"```[^\r\n`]*\r?\n(.*?)```", re.DOTALL)
 OPEN_TO_CLOSE = {"{": "}", "[": "]"}
 CLOSE_TO_OPEN = {closing: opening for opening, closing in OPEN_TO_CLOSE.items()}
 INVALID_JSON = object()
@@ -15,7 +13,7 @@ class ReplyNotJsonError(ValueError):
 
 
 def _balanced_values(text: str) -> list[tuple[int, str]]:
-    """Return balanced object and array candidates, ordered by their starting positions."""
+    """Return every balanced object and array candidate, ordered by starting position."""
 
     openings: list[tuple[str, int]] = []
     candidates: list[tuple[int, str]] = []
@@ -46,43 +44,35 @@ def _balanced_values(text: str) -> list[tuple[int, str]]:
     return sorted(candidates, key=lambda candidate: candidate[0])
 
 
-def _parse_first_candidate(text: str) -> Any:
-    """Parse the first complete candidate in text or return a private sentinel."""
-    try:
-        return json.loads(text)
-    except (json.JSONDecodeError, RecursionError):
-        pass
-
-    for _, candidate in _balanced_values(text):
-        try:
-            return json.loads(candidate)
-        except (json.JSONDecodeError, RecursionError):
-            continue
-    return INVALID_JSON
+def _top_level_values(text: str) -> list[str]:
+    """Keep only values not nested inside an earlier value, such as inner objects of the answer."""
+    values: list[str] = []
+    last_end = -1
+    for start, value in _balanced_values(text):
+        end = start + len(value) - 1
+        if start > last_end:
+            values.append(value)
+            last_end = end
+    return values
 
 
 def parse_json_reply(text: str) -> Any:
-    """Return the first JSON value in a reply, without imposing its expected shape.
+    """Return the last valid JSON value in a reply, without imposing its expected shape.
 
-    The whole reply is tried first, then fenced blocks, then balanced objects and
-    arrays in surrounding prose. Parsing failures never repeat any reply text.
+    The whole reply is tried first. Otherwise the reply is scanned for top-level
+    objects and arrays, and the last one that parses is returned: a model usually
+    reasons or shows a shape example before it writes the real answer. Nested values
+    inside that answer are not treated as separate answers. Parsing failures never
+    repeat any reply text.
     """
     try:
         return json.loads(text)
     except (json.JSONDecodeError, RecursionError):
         pass
 
-    fenced_ranges: list[tuple[int, int]] = []
-    for match in FENCED_BLOCK.finditer(text):
-        fenced_ranges.append(match.span())
-        parsed = _parse_first_candidate(match.group(1))
-        if parsed is not INVALID_JSON:
-            return parsed
-
-    surrounding_text = text
-    for start, end in reversed(fenced_ranges):
-        surrounding_text = surrounding_text[:start] + (" " * (end - start)) + surrounding_text[end:]
-    parsed = _parse_first_candidate(surrounding_text)
-    if parsed is not INVALID_JSON:
-        return parsed
+    for candidate in reversed(_top_level_values(text)):
+        try:
+            return json.loads(candidate)
+        except (json.JSONDecodeError, RecursionError):
+            continue
     raise ReplyNotJsonError("The reply did not contain a usable JSON value.")
