@@ -119,6 +119,7 @@ async def test_invalid_json_gets_one_repair_call_and_then_returns_the_graph():
     graph = await extract_skills(
         fake,
         catalog,
+        owner_id="alice",
         job_title="React Developer",
         job_description="Build web interfaces.",
     )
@@ -139,6 +140,7 @@ async def test_invalid_graph_gets_one_graph_repair_call():
     graph = await extract_skills(
         fake,
         catalog,
+        owner_id="alice",
         job_title="React Developer",
         job_description="Build web interfaces.",
     )
@@ -159,6 +161,7 @@ async def test_parse_then_graph_repair_uses_no_more_than_three_model_calls():
     graph = await extract_skills(
         fake,
         catalog,
+        owner_id="alice",
         job_title="React Developer",
         job_description="Build web interfaces.",
     )
@@ -176,6 +179,7 @@ async def test_truncated_reply_fails_without_a_repair_call():
         await extract_skills(
             fake,
             InMemorySkillCatalog(seed_entries=()),
+            owner_id="alice",
             job_title="React Developer",
             job_description="Build web interfaces.",
         )
@@ -205,6 +209,7 @@ async def test_gateway_errors_pass_through_without_repair(error):
         await extract_skills(
             fake,
             InMemorySkillCatalog(seed_entries=()),
+            owner_id="alice",
             job_title="React Developer",
             job_description="Build web interfaces.",
         )

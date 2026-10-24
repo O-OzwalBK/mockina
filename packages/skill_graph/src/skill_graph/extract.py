@@ -165,13 +165,14 @@ async def extract_skills(
     llm: LLM,
     catalog: SkillCatalog,
     *,
+    owner_id: str,
     job_title: str,
     job_description: str,
     prior_root_labels: Collection[str] = (),
 ) -> SkillGraph:
     """Extract, repair at most once per failure class, validate, and record a skill graph."""
     entries = select_catalog_entries(
-        await catalog.all_entries(),
+        await catalog.all_entries(owner_id),
         prior_root_labels=prior_root_labels,
     )
     messages = build_prompt(job_title, job_description, entries)
@@ -220,5 +221,5 @@ async def extract_skills(
             )
             continue
 
-        await catalog.record(graph)
+        await catalog.record(graph, owner_id)
         return graph

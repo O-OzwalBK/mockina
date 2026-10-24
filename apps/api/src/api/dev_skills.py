@@ -16,6 +16,8 @@ from api.models import ErrorResponse, SkillExtractionRequest, SkillExtractionRes
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+DEV_OWNER_ID = "dev"
+"""The single catalog owner used by developer routes until user identity exists."""
 ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
     413: {"model": ErrorResponse, "description": "The model context budget was exceeded."},
     422: {"model": ErrorResponse, "description": "The request body is invalid."},
@@ -55,6 +57,7 @@ async def _extraction_response(
     graph = await extract_skills(
         LoggedLLM(llm, model_name=model_name, logger=logger),
         catalog,
+        owner_id=DEV_OWNER_ID,
         job_title=job_title,
         job_description=job_description,
     )

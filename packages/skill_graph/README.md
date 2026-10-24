@@ -20,6 +20,7 @@ async def extract(llm: LLM):
     return await extract_skills(
         llm,
         catalog,
+        owner_id="user-1",
         job_title="Junior React Developer",
         job_description="Build accessible interfaces with React and TypeScript.",
     )
@@ -53,9 +54,9 @@ POST /v1/dev/extract-skills/raw          apps/api/src/api/dev_skills.py
 
 Each step does one job:
 
-1. **Read the catalog.** `catalog.all_entries()` returns seed labels and every label recorded by
-   earlier extractions in the same process. The in-memory catalog starts with 12 seeds such as
-   JavaScript, TypeScript, Node.js, Docker, and Git.
+1. **Read the catalog.** `catalog.all_entries(owner_id)` returns the shared seed labels plus the
+   labels this owner recorded in earlier extractions. The in-memory catalog starts with 12 shared
+   seeds such as JavaScript, TypeScript, Node.js, Docker, and Git.
 2. **Choose prompt entries.** `select_catalog_entries()` caps the catalog at
    `MAX_CATALOG_ENTRIES_IN_PROMPT` (200), seed entries first, so the model can reuse existing
    labels instead of inventing near-duplicates.
@@ -74,8 +75,8 @@ Each step does one job:
 7. **Validate the contract.** `SkillGraph.model_validate()` applies the shared rules: unique IDs,
    unique sibling labels, valid parents, root-scoped IDs, 3–30 leaves, and 1–5 metadata on leaves
    only. Any violation raises `SkillGraphValidationError`.
-8. **Record and return.** `catalog.record()` stores first-seen root and node labels by ID, then
-   the validated graph goes back to the caller.
+8. **Record and return.** `catalog.record(graph, owner_id)` stores first-seen root and node labels
+   in that owner's partition, then the validated graph goes back to the caller.
 
 The read/validate loop has a bounded repair policy:
 
@@ -114,19 +115,28 @@ a prompt or validation change in this package, not something the current code gu
 
 ## Catalog
 
-`SkillCatalog` is an async protocol with `all_entries()` and `record(graph)`. `SkillStore` contains
-the catalog so future per-preparation persistence can be added without changing extraction.
-`InMemorySkillStore` seeds common technologies and records first sightings only. Entries contain
-`id`, `root_label`, `node_label`, and immutable `created_at`; they do not contain importance,
-difficulty, or `parent_id`. Those belong to a preparation graph. The catalog is lost on restart,
-but deterministic IDs remain the same. Trees may differ between preparations; IDs do not.
+`SkillCatalog` is an async protocol with `all_entries(owner_id)` and `record(graph, owner_id)`.
+`SkillStore` contains the catalog so future per-preparation persistence can be added without
+changing extraction. `InMemorySkillStore` seeds common technologies and records first sightings
+only. Entries contain `id`, `root_label`, `node_label`, and immutable `created_at`; they do not
+contain importance, difficulty, or `parent_id`. Those belong to a preparation graph. The catalog is
+lost on restart, but deterministic IDs remain the same. Trees may differ between preparations; IDs
+do not.
+
+Seeds live in the shared `None` partition and every owner reads them. Learned labels live in the
+owner's own partition by default, so one user's labels never appear in another user's prompt.
+`CatalogSharing` is the extension point for another policy: implement `visible_partitions(owner_id)`
+and `write_partition(owner_id)` to share by team, domain, preparation, or a future promotion
+threshold. `InMemorySkillCatalog(sharing=...)` accepts such a policy; `PerUserSharing` is the
+default. The prompt entry cap applies after the visible partitions are merged.
 
 The prompt catalog is capped at `MAX_CATALOG_ENTRIES_IN_PROMPT` (200). Selection priority is seed
-entries, entries under seeded roots, entries under roots used in the current user's preparations,
-then all other entries. When a tier must be capped, selection round-robins alphabetically across
-roots and takes newest first within each root. `created_at` means first seen, not last used; when
-persistent storage or measured prompt pressure makes the cap consequential, add `last_seen_at` in
-that storage work and order by it instead.
+entries, entries under seeded roots, entries under roots supplied in `prior_root_labels`, then all
+other entries. The caller can pass roots it already knows for this user; the catalog itself is not
+global. When a tier must be capped, selection round-robins alphabetically across roots and takes
+newest first within each root. `created_at` means first seen, not last used; when persistent storage
+or measured prompt pressure makes the cap consequential, add `last_seen_at` in that storage work
+and order by it instead.
 
 ## Configuration and errors
 
