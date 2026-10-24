@@ -1,0 +1,72 @@
+.guide-search {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 520px;
+  padding: 0 15px;
+  height: 48px;
+  margin-bottom: 22px;
+  color: #8a93a6;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+}
+.guide-search input {
+  width: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--ink);
+}
+.guide-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 17px;
+}
+.guide-card {
+  position: relative;
+}
+.guide-icon {
+  display: grid;
+  place-items: center;
+  width: 45px;
+  height: 45px;
+  margin-bottom: 18px;
+  color: var(--primary);
+  background: var(--primary-soft);
+  border-radius: 14px;
+}
+.guide-card .pill {
+  position: absolute;
+  top: 23px;
+  right: 22px;
+}
+.guide-card h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+.guide-card p {
+  min-height: 48px;
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+.guide-card .btn {
+  margin-top: 7px;
+  font-size: 0.8rem;
+}
+.guide-card .btn span {
+  color: var(--primary);
+}
+.empty-guides {
+  color: var(--muted);
+  text-align: center;
+}
+@media (max-width: 650px) {
+  .guide-grid {
+    grid-template-columns: 1fr;
+  }
+  .guide-card p {
+    min-height: 0;
+  }
+}
