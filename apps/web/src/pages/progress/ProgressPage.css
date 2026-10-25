@@ -1,0 +1,82 @@
+.progress-page .page-heading {
+  align-items: center;
+}
+.progress-metric {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+.metric-icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  color: var(--primary);
+  background: var(--primary-soft);
+  border-radius: 13px;
+}
+.metric-icon.mint {
+  color: #148766;
+  background: #e5f8f0;
+}
+.metric-icon.peach {
+  color: #b76a12;
+  background: #fff1df;
+}
+.progress-metric small {
+  color: var(--muted);
+}
+.progress-metric strong {
+  font-size: 2rem;
+  letter-spacing: -0.05em;
+}
+.metric-foot {
+  color: #929aab;
+  font-size: 0.75rem;
+}
+.progress-panel {
+  margin-top: 20px;
+}
+.progress-panel h2 {
+  margin: 0 0 8px;
+}
+.progress-panel > div:first-child p {
+  margin: 0 0 24px;
+  font-size: 0.84rem;
+  line-height: 1.6;
+}
+.skill-row {
+  margin-top: 20px;
+}
+.skill-row > div:first-child {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 9px;
+  font-size: 0.84rem;
+}
+.skill-row strong {
+  color: var(--primary);
+}
+.skill-row .progress-track {
+  margin: 0;
+  height: 8px;
+}
+.progress-next {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  margin-top: 20px;
+  padding: 20px;
+  border-radius: 16px;
+  background: #eeedff;
+}
+.progress-next > span {
+  color: var(--primary);
+}
+.progress-next p {
+  margin: 6px 0 0;
+  color: #6e7192;
+  font-size: 0.83rem;
+  line-height: 1.5;
+}

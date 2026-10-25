@@ -1,0 +1,70 @@
+.grading-page {
+  max-width: 850px;
+}
+.grading-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: clamp(24px, 5vw, 48px);
+  text-align: center;
+}
+.grading-spinner {
+  display: grid;
+  place-items: center;
+  width: 70px;
+  height: 70px;
+  margin-bottom: 20px;
+  color: var(--primary);
+  background: var(--primary-soft);
+  border-radius: 22px;
+}
+.grading-spinner svg {
+  animation: grading-spin 1.5s linear infinite;
+}
+.grading-card h2 {
+  margin: 0;
+  font-size: 1.4rem;
+}
+.grading-card > p {
+  max-width: 460px;
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.6;
+}
+.grading-steps {
+  display: grid;
+  width: min(100%, 500px);
+  gap: 0;
+  margin: 22px 0 28px;
+  text-align: left;
+}
+.grading-step {
+  display: grid;
+  grid-template-columns: 25px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 15px 0;
+  border-bottom: 1px solid var(--border);
+  color: #a0a7b7;
+  font-size: 0.8rem;
+}
+.grading-step svg {
+  width: 19px;
+}
+.grading-step strong {
+  font-size: 0.72rem;
+}
+.grading-step.done {
+  color: var(--success);
+}
+.grading-step.active {
+  color: var(--primary);
+}
+.grading-step.active svg {
+  animation: grading-spin 2s linear infinite;
+}
+@keyframes grading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
