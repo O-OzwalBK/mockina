@@ -22,9 +22,27 @@ type ServerPreparation = {
 const USE_MOCK = import.meta.env.VITE_USE_MOCK !== "false";
 
 const MOCK: PreparationSummary[] = [
-  { id: "p1", title: "Product Designer", createdAt: "2026-10-22T09:00:00Z", sessionCount: 0, lastPractisedAt: null },
-  { id: "p2", title: "Backend Engineer", createdAt: "2026-10-20T09:00:00Z", sessionCount: 3, lastPractisedAt: "2026-10-21T18:30:00Z" },
-  { id: "p3", title: "Data Analyst", createdAt: "2026-10-18T09:00:00Z", sessionCount: 1, lastPractisedAt: "2026-10-18T20:05:00Z" },
+  {
+    id: "p1",
+    title: "Product Designer",
+    createdAt: "2026-10-22T09:00:00Z",
+    sessionCount: 0,
+    lastPractisedAt: null,
+  },
+  {
+    id: "p2",
+    title: "Backend Engineer",
+    createdAt: "2026-10-20T09:00:00Z",
+    sessionCount: 3,
+    lastPractisedAt: "2026-10-21T18:30:00Z",
+  },
+  {
+    id: "p3",
+    title: "Data Analyst",
+    createdAt: "2026-10-18T09:00:00Z",
+    sessionCount: 1,
+    lastPractisedAt: "2026-10-18T20:05:00Z",
+  },
 ];
 
 function wait(ms: number, signal?: AbortSignal) {
@@ -41,15 +59,20 @@ function wait(ms: number, signal?: AbortSignal) {
 async function mockList(signal?: AbortSignal): Promise<PreparationSummary[]> {
   await wait(500, signal);
   const scenario = new URLSearchParams(window.location.search).get("mock");
-  if (scenario === "error") throw new ApiError({ code: "network_error", status: 0, retryable: true });
+  if (scenario === "error")
+    throw new ApiError({ code: "network_error", status: 0, retryable: true });
   if (scenario === "empty") return [];
   return MOCK;
 }
 
 /** List the person's preparations, newest first. */
-export async function getPreparations(signal?: AbortSignal): Promise<PreparationSummary[]> {
+export async function getPreparations(
+  signal?: AbortSignal,
+): Promise<PreparationSummary[]> {
   if (USE_MOCK) return mockList(signal);
-  const rows = await apiRequest<ServerPreparation[]>("/v1/preparations", { signal });
+  const rows = await apiRequest<ServerPreparation[]>("/v1/preparations", {
+    signal,
+  });
   return rows.map((row) => ({
     id: row.id,
     title: row.job_title,
