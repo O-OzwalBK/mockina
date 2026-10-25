@@ -437,7 +437,11 @@ class SQLiteSessionStore:
         job_description: str,
         resume: str | None,
     ) -> Preparation:
-        """Edit text only while the preparation has no sessions, and clear its graph."""
+        """Edit text only while the preparation has no sessions.
+
+        The skill graph is cleared only when the title or the description changed,
+        because those are the only texts skill extraction reads.
+        """
 
         def operation(connection: sqlite3.Connection) -> Preparation:
             row = self._preparation_row(connection, user_id, preparation_id)
@@ -451,18 +455,24 @@ class SQLiteSessionStore:
                 raise PreparationLockedError(
                     "A preparation with a session can no longer be edited."
                 )
-            updated = self._preparation_from_row(row).updated(
+            current = self._preparation_from_row(row)
+            updated = current.updated(
                 job_title=job_title,
                 job_description=job_description,
                 resume=resume,
             )
+            extraction_inputs_changed = (
+                updated.job_title != current.job_title
+                or updated.job_description != current.job_description
+            )
             connection.execute(
                 "UPDATE preparations SET job_title = ?, job_description = ?, resume = ?, "
-                "skill_graph = NULL WHERE id = ?",
+                "skill_graph = CASE WHEN ? THEN NULL ELSE skill_graph END WHERE id = ?",
                 (
                     updated.job_title,
                     updated.job_description,
                     updated.resume,
+                    int(extraction_inputs_changed),
                     str(preparation_id),
                 ),
             )
@@ -541,16 +551,20 @@ class SQLiteSessionStore:
         return await self._write(operation)
 
     async def get_session(self, user_id: UUID, session_id: UUID) -> InterviewSession | None:
-        """Read one session with all turns, or None."""
-        row = await self._run(
-            lambda connection: connection.execute(
+        """Read one session with all turns, or None.
+
+        The session row and its turns are read in one step on the owning thread, so a
+        write from another request cannot land between the two reads.
+        """
+
+        def read(connection: sqlite3.Connection) -> InterviewSession | None:
+            row = connection.execute(
                 "SELECT * FROM sessions WHERE id = ? AND user_id = ?",
                 (str(session_id), str(user_id)),
             ).fetchone()
-        )
-        if row is None:
-            return None
-        return await self._run(lambda connection: self._session_from_row(connection, row))
+            return self._session_from_row(connection, row) if row is not None else None
+
+        return await self._run(read)
 
     async def list_sessions(
         self, user_id: UUID, preparation_id: UUID

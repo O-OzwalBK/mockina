@@ -72,7 +72,7 @@ class SessionStore(Protocol):
         job_description: str,
         resume: str | None,
     ) -> Preparation:
-        """Replace editable text while the preparation has no sessions, and clear its skill graph."""
+        """Replace editable text while no session exists; a title or description change clears the graph."""
         ...
 
     async def delete_preparation(self, user_id: UUID, preparation_id: UUID) -> None:

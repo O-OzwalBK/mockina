@@ -56,8 +56,9 @@ is not the repository root.
 per UTC day, delete with everything, purge inactive users.
 
 **Preparations:** create, get, list newest first with `session_count` and
-`last_session_at`, update only while no session exists (and clear the skill graph),
-delete with its sessions. The skill graph is stored as JSON on the preparation and
+`last_session_at`, update only while no session exists (a changed title or description
+clears the skill graph; a resume-only edit keeps it, because extraction never reads the
+resume), delete with its sessions. The skill graph is stored as JSON on the preparation and
 read back through `SkillGraph`.
 
 **Sessions:** create empty and in progress, get with all turns, list newest first with

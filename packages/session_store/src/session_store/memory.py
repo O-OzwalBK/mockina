@@ -222,7 +222,11 @@ class InMemorySessionStore:
         job_description: str,
         resume: str | None,
     ) -> Preparation:
-        """Edit text only while the preparation has no sessions, and clear the graph."""
+        """Edit text only while the preparation has no sessions.
+
+        The skill graph is cleared only when the title or the description changed,
+        because those are the only texts skill extraction reads.
+        """
         async with self._lock:
             row = self._preparation(user_id, preparation_id)
             if any(
@@ -238,9 +242,14 @@ class InMemorySessionStore:
                 job_description=job_description,
                 resume=resume,
             )
+            extraction_inputs_changed = (
+                updated.job_title != row.preparation.job_title
+                or updated.job_description != row.preparation.job_description
+            )
             self._preparations[preparation_id] = _PreparationRow(
                 owner_id=user_id,
                 preparation=updated,
+                skill_graph=None if extraction_inputs_changed else row.skill_graph,
             )
             return updated
 

@@ -178,6 +178,44 @@ async def test_update_preparation_clears_the_skill_graph(store):
 
 
 @pytest.mark.anyio
+@pytest.mark.parametrize("field", ["job_title", "job_description"])
+async def test_changing_only_the_title_or_the_description_clears_the_skill_graph(store, field):
+    """Skills are extracted from the title and the description, so either edit invalidates them."""
+    owner = await user(store)
+    preparation = await store.create_preparation(owner.id, preparation_data())
+    await store.save_skill_graph_if_absent(owner.id, preparation.id, graph())
+    edit = {
+        "job_title": preparation.job_title,
+        "job_description": preparation.job_description,
+        "resume": preparation.resume,
+    }
+    edit[field] = "A different value."
+
+    await store.update_preparation(owner.id, preparation.id, **edit)
+
+    assert await store.get_skill_graph(owner.id, preparation.id) is None
+
+
+@pytest.mark.anyio
+async def test_a_resume_only_edit_keeps_the_skill_graph(store):
+    """The resume is never sent to skill extraction, so editing it must not discard the graph."""
+    owner = await user(store)
+    preparation = await store.create_preparation(owner.id, preparation_data())
+    saved = await store.save_skill_graph_if_absent(owner.id, preparation.id, graph())
+
+    updated = await store.update_preparation(
+        owner.id,
+        preparation.id,
+        job_title=preparation.job_title,
+        job_description=preparation.job_description,
+        resume="A different resume.",
+    )
+
+    assert updated.resume == "A different resume."
+    assert await store.get_skill_graph(owner.id, preparation.id) == saved
+
+
+@pytest.mark.anyio
 async def test_delete_preparation_removes_its_sessions(store):
     """Deleting a preparation deletes the sessions under it."""
     owner = await user(store)
