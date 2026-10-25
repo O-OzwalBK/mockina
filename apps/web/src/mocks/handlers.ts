@@ -1,4 +1,4 @@
-import { http, HttpResponse } from "msw";
+import { http, HttpResponse, passthrough } from "msw";
 import type {
   Answer,
   Capabilities,
@@ -153,8 +153,22 @@ function invalidSessionState(message: string) {
 }
 
 /** Mock handlers for capabilities, identity, preparations, and interviews. */
+
+const useRealBackend = import.meta.env.VITE_USE_REAL_PREPARATIONS === "true";
+
 export const handlers = [
-  // Capabilities
+  // Forward existing backend endpoints to FastAPI.
+  ...(useRealBackend
+    ? [
+        http.post("/v1/identity", () => passthrough()),
+        http.delete("/v1/identity", () => passthrough()),
+        http.get("/v1/preparations", () => passthrough()),
+        http.post("/v1/preparations", () => passthrough()),
+        http.get("/v1/preparations/:id", () => passthrough()),
+      ]
+    : []),
+
+  // Capabilities remain mocked.
   http.get("/v1/capabilities", () => HttpResponse.json(capabilities)),
 
   // Identity

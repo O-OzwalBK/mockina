@@ -1,4 +1,3 @@
-
 import {
   ArrowLeft,
   ArrowRight,
@@ -6,24 +5,62 @@ import {
   Mic,
   PencilLine,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { createSession } from "../../api/api";
+import { createSession, getPreparation } from "../../api/api";
+import type { Preparation } from "../../api";
 import "./PreparationHubPage.css";
 
 export default function PreparationHubPage() {
   const { preparationId } = useParams();
   const navigate = useNavigate();
 
+  const [preparation, setPreparation] = useState<Preparation | null>(null);
+  const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState("");
 
-  const title =
-    preparationId === "qa"
-      ? "QA Automation Engineer"
-      : preparationId === "new"
-        ? "Create a preparation"
-        : "Frontend Developer";
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadPreparation() {
+      if (!preparationId || preparationId === "new") {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setError("");
+
+        const result = await getPreparation(preparationId);
+
+        if (!cancelled) {
+          setPreparation(result);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(
+            err instanceof Error ? err.message : "Failed to load preparation.",
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void loadPreparation();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [preparationId]);
+
+  const title = loading
+    ? "Loading preparation..."
+    : (preparation?.job_title ?? "Preparation not found");
 
   const handleStartInterview = async () => {
     if (!preparationId || starting) return;
@@ -32,10 +69,7 @@ export default function PreparationHubPage() {
     setError("");
 
     try {
-      // Create a real interview session using the preparation ID.
       const session = await createSession(preparationId);
-
-      // Navigate using the actual session ID returned by the API.
       navigate(`/interview/${session.id}`);
     } catch (err) {
       setError(
@@ -58,9 +92,7 @@ export default function PreparationHubPage() {
         <div>
           <p className="eyebrow">PREPARATION WORKSPACE</p>
           <h1>{title}</h1>
-          <p>
-            Review your setup, get ready, and start when you feel prepared.
-          </p>
+          <p>Review your setup, get ready, and start when you feel prepared.</p>
         </div>
         <span className="pill">Draft workspace</span>
       </div>
@@ -99,7 +131,7 @@ export default function PreparationHubPage() {
             type="button"
             className="btn btn-primary hub-start"
             onClick={handleStartInterview}
-            disabled={starting || !preparationId}
+            disabled={starting || loading || !preparation}
           >
             {starting ? "Starting interview..." : "Start practice interview"}
             {!starting && <ArrowRight size={17} />}
