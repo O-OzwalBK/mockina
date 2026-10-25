@@ -204,6 +204,27 @@ async def test_skill_graph_is_saved_only_once(store):
 
 
 @pytest.mark.anyio
+async def test_list_sessions_is_newest_first_with_progress_counts(store, clock):
+    """The preparation page gets each session with turns_total and turns_graded."""
+    owner = await user(store)
+    preparation = await store.create_preparation(owner.id, preparation_data())
+    first = await store.create_session(owner.id, preparation.id)
+    asked = question()
+    await store.add_question(owner.id, first.id, asked)
+    await store.record_answer(owner.id, first.id, asked.id, answer())
+    await store.record_evaluation(owner.id, first.id, asked.id, evaluation(asked.id))
+    clock.advance(minutes=1)
+    second = await store.create_session(owner.id, preparation.id)
+
+    sessions = await store.list_sessions(owner.id, preparation.id)
+
+    assert [item.id for item in sessions] == [second.id, first.id]
+    assert sessions[1].turns_total == 1
+    assert sessions[1].turns_graded == 1
+    assert sessions[0].turns_total == 0
+
+
+@pytest.mark.anyio
 async def test_create_session_starts_empty_and_in_progress(store):
     """A new session has no turns and is in progress."""
     owner = await user(store)
@@ -381,6 +402,28 @@ async def test_two_simultaneous_questions_create_one_open_turn(store):
     saved = await store.get_session(owner.id, session.id)
     assert saved is not None
     assert len(saved.turns) == 1
+
+
+@pytest.mark.anyio
+async def test_a_grading_write_and_a_new_question_do_not_lose_each_other(store):
+    """Two operations on the same session merge their writes instead of replacing the session."""
+    owner = await user(store)
+    _, session = await prepared_session(store, owner.id)
+    first = question(1)
+    await store.add_question(owner.id, session.id, first)
+    await store.record_answer(owner.id, session.id, first.id, answer())
+    second = question(2)
+
+    await asyncio.gather(
+        store.record_evaluation(owner.id, session.id, first.id, evaluation(first.id)),
+        store.add_question(owner.id, session.id, second),
+    )
+
+    saved = await store.get_session(owner.id, session.id)
+    assert saved is not None
+    assert len(saved.turns) == 2
+    assert saved.turns[0].status == TurnStatus.GRADED
+    assert saved.turns[1].question.id == second.id
 
 
 @pytest.mark.anyio
