@@ -256,15 +256,21 @@ export const handlers = [
 
   // Create an interview session
   http.post("/v1/preparations/:id/sessions", ({ params }) => {
-    const preparation = preparations.find((item) => item.id === params.id);
+    const preparationId = String(params.id);
 
-    if (!preparation) return notFound();
+    const preparation = preparations.find((item) => item.id === preparationId);
+
+    // Real preparations come from the backend, so they won't
+    // necessarily exist in MSW's local preparations array.
+    if (!preparation && !useRealBackend) {
+      return notFound();
+    }
 
     const now = new Date().toISOString();
 
     const session: InterviewSession = {
       id: crypto.randomUUID(),
-      preparation_id: preparation.id,
+      preparation_id: preparationId,
       status: "in_progress",
       started_at: now,
       ended_at: null,
