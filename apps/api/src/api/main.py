@@ -31,7 +31,8 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.cors import CORSMiddleware
 
 from api.models import CompletionRequest, CompletionResponse, ErrorResponse, ModelInfoResponse
-from api.resources import database_path, initialize_database, router as resources_router
+from api.resources import database_path, initialize_database
+from api.resources import router as resources_router
 from api.settings import ApiSettings
 
 logger = logging.getLogger(__name__)
