@@ -10,7 +10,6 @@ from contracts import (
 )
 from engine import FinishedReason, InterviewFinished
 from engine.end_rules import is_finished
-from llm_gateway import LLMResponseError
 from llm_gateway.testing import FakeLLM
 
 
@@ -47,6 +46,17 @@ async def test_question_count_finishes_at_the_limit():
     """Reaching the configured count finishes the interview with the count reason."""
     llm = FakeLLM()
     result = await is_finished(QuestionCountConfig(count=3), _turns(3), llm)
+    assert result == InterviewFinished(reason=FinishedReason.QUESTION_COUNT_REACHED)
+    assert llm.calls == []
+
+
+@pytest.mark.anyio
+@pytest.mark.anyio
+async def test_the_session_turn_cap_stops_the_answer_time_rule():
+    """Even a generous time rule cannot ask a 101st question; the session cap wins."""
+    llm = FakeLLM()
+    turns = _turns(100, duration=1.0)
+    result = await is_finished(AnswerTimeConfig(max_seconds=3600), turns, llm)
     assert result == InterviewFinished(reason=FinishedReason.QUESTION_COUNT_REACHED)
     assert llm.calls == []
 
@@ -138,9 +148,23 @@ async def test_finish_reply_is_read_case_insensitively_after_trimming(reply):
 
 
 @pytest.mark.anyio
-async def test_an_unexpected_decision_reply_is_a_bad_response():
-    """A reply that is neither continue nor finish is rejected as a bad model response."""
-    llm = FakeLLM("maybe later")
+@pytest.mark.parametrize(
+    ("reply", "finishes"),
+    [
+        ("Continue.", False),
+        ("**continue**", False),
+        ("Finish.", True),
+        ("I think we should continue", False),
+        ("I think we should finish", True),
+        ("maybe later", False),
+    ],
+)
+async def test_decision_reply_is_read_leniently(reply, finishes):
+    """Markdown, punctuation, and a sentence around the word do not kill the turn."""
+    llm = FakeLLM(reply)
     config = ModelDecidesConfig(min_questions=3, max_questions=12)
-    with pytest.raises(LLMResponseError):
-        await is_finished(config, _turns(5), llm)
+    result = await is_finished(config, _turns(5), llm)
+    if finishes:
+        assert result == InterviewFinished(reason=FinishedReason.MODEL_DECIDED)
+    else:
+        assert result is None

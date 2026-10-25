@@ -46,13 +46,15 @@ async def next_turn(
     random_source = random_source if random_source is not None else random.Random()
     skill = choose_skill(skill_graph, turns, earlier_questions, random_source=random_source)
     difficulty = choose_difficulty(skill, turns)
-    earlier = _earlier_for_skill(skill.id, turns, earlier_questions)
+    skill_earlier = _earlier_for_skill(skill.id, turns, earlier_questions)
+    all_earlier = [turn.question for turn in turns]
+    all_earlier.extend(earlier_questions)
 
-    messages = build_messages(preparation, skill, difficulty, earlier)
+    messages = build_messages(preparation, skill, difficulty, skill_earlier)
     text = await write_question(
         llm,
         messages,
         skill_id=skill.id,
-        earlier_questions=earlier,
+        earlier_questions=all_earlier,
     )
     return Question(text=text, skill_id=skill.id, difficulty=difficulty)

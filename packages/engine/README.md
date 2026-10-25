@@ -66,6 +66,11 @@ The minimum must stay below the maximum. The hard limits themselves live in
 `contracts.interview_config`, so every layer validates against the same numbers. The
 default rule is `QuestionCountConfig(count=ENGINE_DEFAULT_QUESTION_COUNT)`.
 
+The prompt contains the job description and optional resume, so the gateway's
+`LLM_CONTEXT_TOKENS` must be large enough for them plus the reply. The default is
+8,192 tokens; raise it to the model's real context (leaving room for the output) if a
+long description or resume is rejected with `context_too_large`.
+
 ## Errors
 
 | Error                   | Meaning                                                               | Retryable |

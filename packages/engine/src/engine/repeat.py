@@ -5,6 +5,8 @@ from dataclasses import dataclass
 
 from contracts import Question, normalize
 
+from engine.text import sanitize_question
+
 REPEAT_THRESHOLD = 0.6
 MIN_CONTENT_TOKENS = 3
 
@@ -181,18 +183,19 @@ def find_repeat(
     different question. Overlap is skipped when either question has fewer than
     three content words, and when only one of the two is negated.
     """
-    normalized_text = normalize(text)
+    sanitized_text = sanitize_question(text)
+    normalized_text = normalize(sanitized_text)
     for earlier in earlier_questions:
-        if normalize(earlier.text) == normalized_text:
+        if normalize(sanitize_question(earlier.text)) == normalized_text:
             return RepeatMatch(kind=EXACT_REPEAT, earlier_question=earlier.text)
 
-    text_tokens = content_tokens(text)
+    text_tokens = content_tokens(sanitized_text)
     if len(text_tokens) < MIN_CONTENT_TOKENS:
         return None
     for earlier in earlier_questions:
         if earlier.skill_id != skill_id:
             continue
-        earlier_tokens = content_tokens(earlier.text)
+        earlier_tokens = content_tokens(sanitize_question(earlier.text))
         if len(earlier_tokens) < MIN_CONTENT_TOKENS:
             continue
         if _has_negation(text_tokens) != _has_negation(earlier_tokens):

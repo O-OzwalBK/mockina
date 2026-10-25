@@ -1,5 +1,6 @@
 """Check a written question and repair it once when it cannot be spoken aloud."""
 
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 
@@ -9,6 +10,7 @@ from llm_gateway import LLM, ChatMessage, LLMResponseError
 from engine.errors import UnusableQuestionError
 from engine.prompt import ENGINE_MAX_SPOKEN_QUESTION_LENGTH, build_correction
 from engine.repeat import find_repeat
+from engine.text import sanitize_question
 
 QUESTION_TEMPERATURE = 0.7
 RETRY_TEMPERATURE = 0.2
@@ -26,7 +28,9 @@ FAILURE_MARKDOWN = "markdown"
 FAILURE_MULTIPLE_QUESTIONS = "multiple_questions"
 FAILURE_NOT_A_QUESTION = "not_a_question"
 
-MARKDOWN_CHARACTERS = ("\\", "*", "#", "[", "]", "`")
+HEADING_PATTERN = re.compile(r"(?m)^\s{0,3}#{1,6}\s")
+LIST_PATTERN = re.compile(r"(?m)^\s*(?:[-*+]|\d+[.)])\s+")
+LINK_PATTERN = re.compile(r"\[[^\]]+\]\([^)]+\)")
 IMPERATIVE_STARTS = (
     "explain",
     "describe",
@@ -56,11 +60,23 @@ class CheckResult:
     """The earlier question a repeat copied, used only to write the correction."""
 
 
+IMPERATIVE_PATTERN = re.compile(
+    r"^(?:" + "|".join(IMPERATIVE_STARTS) + r")\b",
+    re.IGNORECASE,
+)
+
+
 def _has_markdown(text: str) -> bool:
-    """True when the text contains markup or a bulleted line, none of which can be spoken."""
-    if any(character in text for character in MARKDOWN_CHARACTERS):
+    """True when the text contains real markup, which cannot be spoken or shown cleanly.
+
+    A single ``#`` in ``C#``, ``*`` in ``*args``, brackets in ``items[0]`` and inline
+    backticks around a word are technical text, not markdown.
+    """
+    if "```" in text:
         return True
-    return any(line.startswith("- ") for line in text.splitlines())
+    return bool(
+        HEADING_PATTERN.search(text) or LIST_PATTERN.search(text) or LINK_PATTERN.search(text)
+    )
 
 
 def _question_marks_outside_quotes(text: str) -> int:
@@ -76,9 +92,8 @@ def _question_marks_outside_quotes(text: str) -> int:
 
 
 def _starts_with_imperative(text: str) -> bool:
-    """True when the text opens with a verb that makes it a spoken instruction."""
-    lowered = text.lstrip().lower()
-    return any(lowered.startswith(verb) for verb in IMPERATIVE_STARTS)
+    """True when the text opens with a whole imperative verb, not just its letters."""
+    return IMPERATIVE_PATTERN.match(text.lstrip()) is not None
 
 
 def check_question(
@@ -92,21 +107,21 @@ def check_question(
     The order matters: a repeated question is reported before its markup, and a
     truncation is handled by the caller before the text is checked at all.
     """
-    stripped = text.strip()
-    if not stripped:
+    cleaned = sanitize_question(text)
+    if not cleaned:
         return CheckResult(failure=FAILURE_EMPTY)
-    if len(stripped) > ENGINE_MAX_SPOKEN_QUESTION_LENGTH:
+    if len(cleaned) > ENGINE_MAX_SPOKEN_QUESTION_LENGTH:
         return CheckResult(failure=FAILURE_TOO_LONG)
 
-    repeat = find_repeat(stripped, earlier_questions, skill_id=skill_id)
+    repeat = find_repeat(cleaned, earlier_questions, skill_id=skill_id)
     if repeat is not None:
         return CheckResult(failure=repeat.kind, offending_question=repeat.earlier_question)
 
-    if _has_markdown(stripped):
+    if _has_markdown(text):
         return CheckResult(failure=FAILURE_MARKDOWN)
-    if _question_marks_outside_quotes(stripped) > 1:
+    if _question_marks_outside_quotes(cleaned) > 1:
         return CheckResult(failure=FAILURE_MULTIPLE_QUESTIONS)
-    if "?" not in stripped and not _starts_with_imperative(stripped):
+    if "?" not in cleaned and not _starts_with_imperative(cleaned):
         return CheckResult(failure=FAILURE_NOT_A_QUESTION)
     return CheckResult()
 
@@ -149,14 +164,18 @@ async def write_question(
     attempt. Every other failure gets exactly one corrective retry at a low
     temperature, and a second failure raises `UnusableQuestionError`.
     """
-    text = await _write_once(llm, messages, temperature=QUESTION_TEMPERATURE)
+    text = sanitize_question(await _write_once(llm, messages, temperature=QUESTION_TEMPERATURE))
     first_result = check_question(text, skill_id=skill_id, earlier_questions=earlier_questions)
     if first_result.failure is None:
         return text
 
-    correction = build_correction(first_result.failure, first_result.offending_question)
+    correction = build_correction(
+        first_result.failure,
+        first_result.offending_question,
+        previous_reply=text,
+    )
     retry_messages = (*messages, correction)
-    text = await _write_once(llm, retry_messages, temperature=RETRY_TEMPERATURE)
+    text = sanitize_question(await _write_once(llm, retry_messages, temperature=RETRY_TEMPERATURE))
     second_result = check_question(text, skill_id=skill_id, earlier_questions=earlier_questions)
     if second_result.failure is None:
         return text

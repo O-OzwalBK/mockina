@@ -1,5 +1,6 @@
 """Decide whether the interview is over before the engine asks another question."""
 
+import re
 from collections.abc import Sequence
 
 from contracts import (
@@ -9,12 +10,13 @@ from contracts import (
     QuestionCountConfig,
     Turn,
 )
-from llm_gateway import LLM, ChatMessage, LLMResponseError
+from contracts.session import MAX_TURNS_PER_SESSION
+from llm_gateway import LLM, ChatMessage
 
 from engine.results import FinishedReason, InterviewFinished
 
 DECISION_TEMPERATURE = 0.0
-DECISION_MAX_OUTPUT_TOKENS = 8
+DECISION_MAX_OUTPUT_TOKENS = 64
 
 
 def _total_answer_seconds(turns: Sequence[Turn]) -> float:
@@ -59,12 +61,11 @@ async def _model_decides(
         temperature=DECISION_TEMPERATURE,
         max_output_tokens=DECISION_MAX_OUTPUT_TOKENS,
     )
-    decision = completion.text.strip().lower()
-    if decision == "finish":
+    words = re.findall(r"[a-z]+", completion.text.lower())
+    decisions = [word for word in words if word in {"continue", "finish"}]
+    if decisions and decisions[-1] == "finish":
         return InterviewFinished(reason=FinishedReason.MODEL_DECIDED)
-    if decision == "continue":
-        return None
-    raise LLMResponseError("The model's continue or finish decision was not understood.")
+    return None
 
 
 async def is_finished(
@@ -77,6 +78,8 @@ async def is_finished(
     A count or time rule is pure code and never calls the model. A model-decides
     rule calls the model only when the question count is inside its open range.
     """
+    if len(turns) >= MAX_TURNS_PER_SESSION:
+        return InterviewFinished(reason=FinishedReason.QUESTION_COUNT_REACHED)
     if isinstance(config, QuestionCountConfig):
         if len(turns) >= config.count:
             return InterviewFinished(reason=FinishedReason.QUESTION_COUNT_REACHED)

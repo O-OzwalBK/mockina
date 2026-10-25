@@ -204,6 +204,23 @@ async def test_earlier_questions_reach_the_prompt():
 
 
 @pytest.mark.anyio
+async def test_an_exact_repeat_from_another_skill_is_repaired():
+    """Exact repeats are checked against every earlier question, not just the chosen skill's."""
+    earlier = [Question(text="What is a closure?", skill_id=_leaf("Hooks"), difficulty=2)]
+    llm = FakeLLM("What is a closure?", "How does React batch state updates?")
+    outcome = await _next(
+        QuestionCountConfig(count=1),
+        llm,
+        earlier=earlier,
+        graph=_graph(importances=(1, 5, 1)),
+    )
+
+    assert isinstance(outcome, Question)
+    assert outcome.text == "How does React batch state updates?"
+    assert len(llm.calls) == 2
+
+
+@pytest.mark.anyio
 async def test_a_bad_question_is_repaired_once_and_returned():
     """The flow returns the second, usable question after one repair."""
     bad = "x" * 301
@@ -217,7 +234,7 @@ async def test_a_bad_question_is_repaired_once_and_returned():
 @pytest.mark.anyio
 async def test_two_bad_questions_raise_the_package_error():
     """After one failed repair the flow raises UnusableQuestionError, not a finish or a turn."""
-    llm = FakeLLM("What is `code`?", "y" * 301)
+    llm = FakeLLM("# What is code?", "y" * 301)
     with pytest.raises(UnusableQuestionError):
         await _next(QuestionCountConfig(count=1), llm)
 

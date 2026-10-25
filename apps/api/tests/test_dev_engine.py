@@ -85,7 +85,7 @@ def test_next_question_returns_the_finished_reason_and_no_model_call():
 def test_unusable_question_maps_to_the_retryable_bad_response_code():
     """A model that cannot write a usable question maps to 502 llm_bad_response and is retryable."""
     marker = "private model reply"
-    fake = FakeLLM(f"{marker} `code`?", "x" * 301)
+    fake = FakeLLM(f"# {marker} code?", "x" * 301)
     with TestClient(build_app(fake)) as client:
         response = client.post("/v1/dev/next-question", json=_body())
 

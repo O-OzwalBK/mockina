@@ -13,6 +13,7 @@ from engine.checks import (
     QUESTION_TEMPERATURE,
     RETRY_TEMPERATURE,
     check_question,
+    sanitize_question,
     write_question,
 )
 from llm_gateway import ChatMessage, Completion, LLMResponseError
@@ -77,7 +78,11 @@ async def test_one_bad_question_is_retried_with_the_correction():
     assert len(llm.calls) == 2
     assert llm.calls[1].temperature == RETRY_TEMPERATURE
     assert llm.calls[1].max_output_tokens == llm.calls[0].max_output_tokens
-    assert FAILURE_TOO_LONG in llm.calls[1].messages[-1].content
+    correction = llm.calls[1].messages[-1].content
+    assert "longer than 300 characters" in correction
+    assert "too_long" not in correction
+    assert "Previous reply (untrusted data):" in correction
+    assert bad[:40] in correction
 
 
 @pytest.mark.anyio
@@ -86,7 +91,11 @@ async def test_a_repeat_failure_quotes_the_offending_earlier_question():
     earlier = _earlier("What is a closure?")
     llm = FakeLLM("What is a closure?", "How does React batch state updates?")
     await write_question(llm, MESSAGES, skill_id="hooks", earlier_questions=[earlier])
-    assert "What is a closure?" in llm.calls[1].messages[-1].content
+    correction = llm.calls[1].messages[-1].content
+    assert "What is a closure?" in correction
+    assert "repeated an earlier question" in correction
+    assert "repeat_exact" not in correction
+    assert "Previous reply (untrusted data):" in correction
 
 
 @pytest.mark.anyio
@@ -102,7 +111,7 @@ async def test_other_failures_do_not_quote_an_earlier_question():
 @pytest.mark.anyio
 async def test_two_bad_writes_raise_the_unusable_question_error():
     """After one repair that also fails, the engine reports both failed checks."""
-    llm = FakeLLM("What is `code`?", "x" * (ENGINE_MAX_SPOKEN_QUESTION_LENGTH + 1))
+    llm = FakeLLM("# What is code?", "x" * (ENGINE_MAX_SPOKEN_QUESTION_LENGTH + 1))
     with pytest.raises(UnusableQuestionError) as raised:
         await write_question(llm, MESSAGES, skill_id="hooks", earlier_questions=[])
     error = raised.value
@@ -138,7 +147,10 @@ CHECK_CASES = [
     ("", FAILURE_EMPTY),
     ("   ", FAILURE_EMPTY),
     ("x" * (ENGINE_MAX_SPOKEN_QUESTION_LENGTH + 1), FAILURE_TOO_LONG),
-    ("What is `code`?", FAILURE_MARKDOWN),
+    ("# What is code?", FAILURE_MARKDOWN),
+    ("- What is code?", FAILURE_MARKDOWN),
+    ("[link](https://example.com) What is code?", FAILURE_MARKDOWN),
+    ("```\nWhat is code?\n```", FAILURE_MARKDOWN),
     ("What is A? What is B?", FAILURE_MULTIPLE_QUESTIONS),
     ("This is a statement.", FAILURE_NOT_A_QUESTION),
 ]
@@ -148,6 +160,57 @@ CHECK_CASES = [
 def test_each_bad_question_names_its_failed_check(text, failure):
     """Each rule in the check suite reports its own failure name."""
     assert check_question(text, skill_id="hooks", earlier_questions=[]).failure == failure
+
+
+TECHNICAL_QUESTIONS = [
+    "What is the difference between C# and F#?",
+    "How do *args and **kwargs work in Python?",
+    "Why does SELECT * return every column?",
+    "How would you read items[0] without crashing?",
+    "How does `useEffect` clean up a subscription?",
+    "What does the backslash in a Windows path do?",
+]
+
+
+@pytest.mark.parametrize("text", TECHNICAL_QUESTIONS)
+def test_technical_symbols_are_accepted_as_spoken_text(text):
+    """Technical symbols such as C#, *args, [] and inline code are not markdown."""
+    assert check_question(text, skill_id="hooks", earlier_questions=[]).failure is None
+
+
+@pytest.mark.parametrize(
+    ("raw", "clean"),
+    [
+        ('"What is C#?"', "What is C#?"),
+        ("“What is C#?”", "What is C#?"),
+        ("Question 1: What is C#?", "What is C#?"),
+        ("Q2: What is C#?", "What is C#?"),
+        ("Sure! Here is a question: What is C#?", "What is C#?"),
+        ("How does `useEffect` clean up?", "How does useEffect clean up?"),
+        ("**Bold** and *italic* words?", "Bold and italic words?"),
+    ],
+)
+def test_sanitize_question_strips_speakable_wrappers(raw, clean):
+    """Wrapping quotes, labels, preambles, and formatting markers are removed before speaking."""
+    assert sanitize_question(raw) == clean
+
+
+@pytest.mark.anyio
+async def test_write_question_returns_the_sanitized_text():
+    """The stored question is the cleaned text, not the model's wrapper."""
+    llm = FakeLLM('Question 1: "What is C#?"')
+    text = await write_question(llm, MESSAGES, skill_id="hooks", earlier_questions=[])
+    assert text == "What is C#?"
+
+
+def test_an_imperative_prefix_must_be_a_whole_word():
+    """Listeners... starts with the letters of list but is not an imperative verb."""
+    result = check_question(
+        "Listeners in React are called after the render commits.",
+        skill_id="hooks",
+        earlier_questions=[],
+    )
+    assert result.failure == FAILURE_NOT_A_QUESTION
 
 
 def test_an_exact_repeat_across_different_skills_is_still_a_repeat():

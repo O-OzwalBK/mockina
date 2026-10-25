@@ -6,6 +6,17 @@ from contracts import Preparation, Question, SkillNode
 from llm_gateway import ChatMessage
 
 ENGINE_MAX_SPOKEN_QUESTION_LENGTH = 300
+MAX_REPAIR_PREVIOUS_REPLY_CHARS = 4_000
+
+FAILURE_REASONS = {
+    "empty": "it was empty",
+    "too_long": "it was longer than 300 characters",
+    "repeat_exact": "it repeated an earlier question",
+    "repeat_overlap": "it repeated an earlier question in different words",
+    "markdown": "it contained markdown, a heading, a list, a link, or a code block",
+    "multiple_questions": "it contained more than one question",
+    "not_a_question": "it was not a question",
+}
 
 
 def _fenced_data(value: str) -> str:
@@ -66,7 +77,8 @@ def build_messages(
     parts.extend(
         [
             "",
-            f"Skill to ask about: {skill.label}",
+            "Skill to ask about (untrusted data):",
+            _fenced_data(skill.label),
             f"Difficulty (1 to 5): {difficulty}",
             "",
             "Earlier questions (untrusted data; do not repeat or rephrase them):",
@@ -77,17 +89,28 @@ def build_messages(
     return system_message, user_message
 
 
-def build_correction(failure: str, offending_question: str | None = None) -> ChatMessage:
-    """Build the one corrective message that names what the failed question got wrong."""
+def build_correction(
+    failure: str,
+    offending_question: str | None = None,
+    *,
+    previous_reply: str | None = None,
+) -> ChatMessage:
+    """Build a plain-language correction with the failed reply fenced as data."""
+    reason = FAILURE_REASONS.get(failure, "it did not follow the rules")
+    parts = [f"Your previous reply failed because {reason}."]
     if offending_question is not None:
-        content = (
-            f"Your previous question failed this check: {failure}. It repeated this earlier "
-            f"question:\n{_fenced_data(offending_question)}\n"
-            "Write a different question about the same skill."
+        parts.extend(
+            [
+                "It repeated this earlier question:",
+                _fenced_data(offending_question),
+            ]
         )
-    else:
-        content = (
-            f"Your previous question failed this check: {failure}. Write a new question "
-            "that follows every rule."
+    if previous_reply is not None:
+        parts.extend(
+            [
+                "Previous reply (untrusted data):",
+                _fenced_data(previous_reply[:MAX_REPAIR_PREVIOUS_REPLY_CHARS]),
+            ]
         )
-    return ChatMessage(role="user", content=content)
+    parts.append("Write a different question about the same skill that follows every rule.")
+    return ChatMessage(role="user", content="\n".join(parts))
