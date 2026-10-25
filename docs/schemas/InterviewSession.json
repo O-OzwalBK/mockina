@@ -9,7 +9,7 @@
           "examples": [
             12.5
           ],
-          "maximum": 1800,
+          "maximum": 600,
           "minimum": 0,
           "title": "Duration",
           "type": "number"

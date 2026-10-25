@@ -8,7 +8,7 @@ from contracts.common import ImmutableModel
 MAX_WORD_LENGTH = 100
 MAX_TRANSCRIPT_LENGTH = 20_000
 MAX_WORDS_PER_ANSWER = 5_000
-MAX_ANSWER_DURATION_SECONDS = 1_800
+MAX_ANSWER_DURATION_SECONDS = 600
 
 
 class WordTiming(ImmutableModel):
