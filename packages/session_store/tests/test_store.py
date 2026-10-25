@@ -16,17 +16,17 @@ from contracts import (
     skill_id,
 )
 from session_store import (
-    InMemorySessionStore,
     InvalidStateError,
     NotFoundError,
     OpenQuestionError,
     PreparationLockedError,
     SessionFullError,
+    SessionStore,
 )
 from session_store.models import AwaitingGrade
 
 
-async def user(store: InMemorySessionStore, token: str = "token-a"):
+async def user(store: SessionStore, token: str = "token-a"):
     """Create one user."""
     return await store.create_user(token)
 
@@ -84,7 +84,7 @@ def graph() -> SkillGraph:
     return SkillGraph(nodes=(root, *leaves))
 
 
-async def prepared_session(store: InMemorySessionStore, user_id):
+async def prepared_session(store: SessionStore, user_id):
     """Create a preparation and an empty session for it."""
     preparation = await store.create_preparation(user_id, preparation_data())
     session = await store.create_session(user_id, preparation.id)

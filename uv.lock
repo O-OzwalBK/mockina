@@ -1034,10 +1034,14 @@ version = "0.1.0"
 source = { editable = "packages/session_store" }
 dependencies = [
     { name = "contracts" },
+    { name = "pydantic-settings" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "contracts", editable = "packages/contracts" }]
+requires-dist = [
+    { name = "contracts", editable = "packages/contracts" },
+    { name = "pydantic-settings", specifier = ">=2.15.0" },
+]
 
 [[package]]
 name = "shellingham"

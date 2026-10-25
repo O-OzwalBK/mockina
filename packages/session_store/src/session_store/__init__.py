@@ -21,6 +21,8 @@ from session_store.models import (
     SessionSummary,
     UserRecord,
 )
+from session_store.settings import SessionStoreSettings
+from session_store.sqlite import SQLiteSessionStore
 
 __all__ = [
     "AwaitingGrade",
@@ -33,6 +35,8 @@ __all__ = [
     "SessionFullError",
     "SessionStore",
     "SessionStoreError",
+    "SessionStoreSettings",
     "SessionSummary",
+    "SQLiteSessionStore",
     "UserRecord",
 ]

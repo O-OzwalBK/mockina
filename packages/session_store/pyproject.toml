@@ -1,7 +1,7 @@
 [project]
 name = "session-store"
 version = "0.1.0"
-description = "Add your description here"
+description = "Durable and in-memory storage for users, preparations and sessions."
 readme = "README.md"
 authors = [
     { name = "Mahakaal", email = "59462639+O-ozwal@users.noreply.github.com" }
@@ -9,6 +9,7 @@ authors = [
 requires-python = ">=3.12"
 dependencies = [
     "contracts",
+    "pydantic-settings>=2.15.0",
 ]
 
 [build-system]

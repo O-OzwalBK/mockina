@@ -1,7 +1,7 @@
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from session_store import InMemorySessionStore
+from session_store import InMemorySessionStore, SessionStore, SQLiteSessionStore
 
 
 class MutableClock:
@@ -29,7 +29,14 @@ def clock() -> MutableClock:
     return MutableClock()
 
 
-@pytest.fixture
-def store(clock: MutableClock) -> InMemorySessionStore:
-    """A fresh in-memory store with the test clock."""
-    return InMemorySessionStore(clock=clock)
+@pytest.fixture(params=["memory", "sqlite"])
+def store(request, clock: MutableClock, tmp_path) -> SessionStore:
+    """Run every shared test against both implementations."""
+    if request.param == "memory":
+        yield InMemorySessionStore(clock=clock)
+        return
+    sqlite_store = SQLiteSessionStore(tmp_path / "session-store.db", clock=clock)
+    try:
+        yield sqlite_store
+    finally:
+        sqlite_store.close()
