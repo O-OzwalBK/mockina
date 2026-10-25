@@ -151,6 +151,50 @@ function invalidSessionState(message: string) {
     { status: 409 },
   );
 }
+function createMockEvaluation(turn: Turn): NonNullable<Turn["evaluation"]> {
+  const answer = turn.answer?.transcript.trim() ?? "";
+  const wordCount = answer ? answer.split(/\s+/).length : 0;
+
+  // These are demonstration scores, not an assessment by an AI model.
+  const clarity = Math.min(10, Math.max(1, Math.round(wordCount / 12) + 3));
+  const relevance = wordCount >= 20 ? 8 : wordCount >= 8 ? 6 : 3;
+  const correctness = wordCount >= 20 ? 7 : wordCount >= 8 ? 5 : 3;
+  const depth = wordCount >= 40 ? 8 : wordCount >= 15 ? 6 : 3;
+
+  return {
+    question_id: turn.question.id,
+    clarity: {
+      score: clarity,
+      feedback:
+        wordCount >= 15
+          ? "Your answer provides enough detail to review its structure."
+          : "Try explaining your ideas in more detail and organizing them clearly.",
+    },
+    relevance: {
+      score: relevance,
+      feedback:
+        wordCount >= 20
+          ? "Your answer has enough detail to review how it addresses the question."
+          : "Connect your answer more directly to the question and include a specific example.",
+    },
+    correctness: {
+      score: correctness,
+      feedback:
+        "This demonstration score does not verify the factual accuracy of your answer.",
+    },
+    depth: {
+      score: depth,
+      feedback:
+        wordCount >= 40
+          ? "Your answer includes detail. Consider explaining the reasoning and outcome."
+          : "Add context, explain your approach, and describe the result.",
+    },
+    summary:
+      wordCount >= 20
+        ? "Your answer has a useful starting point. Review each metric's feedback to identify what to improve."
+        : "Expand your answer with context, a specific example, and the result of your actions.",
+  };
+}
 
 /** Mock handlers for capabilities, identity, preparations, and interviews. */
 
@@ -401,12 +445,14 @@ export const handlers = [
       }
 
       turn.answer = answer;
-      turn.status = "awaiting_grade";
+      turn.evaluation = createMockEvaluation(turn);
+      turn.grading_error = null;
+      turn.status = "graded";
       session.updated_at = new Date().toISOString();
 
       return HttpResponse.json({
         question_id: turn.question.id,
-        status: "awaiting_grade",
+        status: "graded",
       });
     },
   ),

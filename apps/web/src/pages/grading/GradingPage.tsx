@@ -1,47 +1,57 @@
-import { CheckCircle2, Clock3, FileText, LoaderCircle } from "lucide-react";
+import { CheckCircle2, FileText } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import "./GradingPage.css";
+
 export default function GradingPage() {
-  const { sessionId } = useParams();
+  const { sessionId = "" } = useParams();
+
   return (
     <div className="page-content grading-page">
       <div className="page-heading">
         <div>
           <p className="eyebrow">SESSION COMPLETE</p>
-          <h1>Preparing your report</h1>
+          <h1>Your interview is finished!</h1>
           <p>
-            Your practice session is complete. Your feedback will appear here
-            when analysis finishes.
+            Your practice session has ended. You can now review your answers
+            and available feedback in your report.
           </p>
         </div>
       </div>
+
       <section className="card grading-card">
         <div className="grading-spinner">
-          <LoaderCircle size={30} />
+          <CheckCircle2 size={30} />
         </div>
-        <h2>Reviewing your interview</h2>
+
+        <h2>Interview grading complete</h2>
         <p>
-          Mockina is organizing your session feedback. You can leave this page
-          and return later.
+          Your session is complete. Your report is ready to view.
         </p>
+
         <div className="grading-steps">
           <div className="grading-step done">
             <CheckCircle2 />
             <span>Interview session completed</span>
-            <strong>Done</strong>
+            <strong>Finished</strong>
           </div>
-          <div className="grading-step active">
-            <Clock3 />
+
+          <div className="grading-step done">
+            <CheckCircle2 />
             <span>Preparing feedback</span>
-            <strong>In progress</strong>
+            <strong>Finished</strong>
           </div>
-          <div className="grading-step">
+
+          <div className="grading-step done">
             <FileText />
             <span>Report ready</span>
-            <strong>Pending</strong>
+            <strong>Finished</strong>
           </div>
         </div>
-        <Link to={`/reports/${sessionId}`} className="btn btn-secondary">
+
+        <Link
+          to={`/reports/${sessionId}`}
+          className="btn btn-primary"
+        >
           View report page
         </Link>
       </section>
