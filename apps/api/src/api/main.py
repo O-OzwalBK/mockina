@@ -31,6 +31,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.cors import CORSMiddleware
 
 from api.models import CompletionRequest, CompletionResponse, ErrorResponse, ModelInfoResponse
+from api.resources import database_path, initialize_database, router as resources_router
 from api.settings import ApiSettings
 
 logger = logging.getLogger(__name__)
@@ -117,6 +118,10 @@ def create_app(settings: ApiSettings | None = None, llm: LLM | None = None) -> F
         lifespan=lifespan,
     )
 
+    app.state.database_path = str(database_path())
+    initialize_database(app.state.database_path)
+    app.include_router(resources_router)
+
     @app.middleware("http")
     async def unexpected_error_middleware(request: Request, call_next):
         try:
@@ -139,8 +144,8 @@ def create_app(settings: ApiSettings | None = None, llm: LLM | None = None) -> F
     app.add_middleware(
         CORSMiddleware,
         allow_origins=list(api_settings.cors_origins),
-        allow_methods=["GET", "POST"],
-        allow_headers=["Content-Type"],
+        allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type"],
         allow_credentials=False,
     )
 
