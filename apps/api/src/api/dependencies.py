@@ -4,6 +4,7 @@ from typing import cast
 
 from fastapi import Request
 from llm_gateway import LLM
+from session_store import SessionStore
 from skill_graph import SkillCatalog, SkillStore
 
 
@@ -16,3 +17,8 @@ def get_skill_catalog(request: Request) -> SkillCatalog:
     """Return the app-owned skill catalog so tests can replace catalog storage."""
     store = cast(SkillStore, request.app.state.skill_store)
     return store.catalog
+
+
+def get_store(request: Request) -> SessionStore:
+    """Return the app-owned session store so tests can replace the dependency."""
+    return cast(SessionStore, request.app.state.store)

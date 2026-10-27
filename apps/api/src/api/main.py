@@ -29,6 +29,12 @@ from llm_gateway import (
     RetryingLLM,
 )
 from pydantic import ValidationError
+from session_store import (
+    SessionStore,
+    SessionStoreError,
+    SessionStoreSettings,
+    SQLiteSessionStore,
+)
 from skill_graph import InMemorySkillStore, SkillGraphError, SkillStore
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.cors import CORSMiddleware
@@ -37,6 +43,7 @@ from api.dependencies import get_llm
 from api.dev_engine import router as dev_engine_router
 from api.dev_evaluator import router as dev_evaluator_router
 from api.dev_skills import router as dev_skills_router
+from api.errors import ApiError, api_error_handler, store_error_handler
 from api.models import CompletionRequest, CompletionResponse, ErrorResponse, ModelInfoResponse
 from api.settings import ApiSettings
 
@@ -83,22 +90,24 @@ def create_app(
     settings: ApiSettings | None = None,
     llm: LLM | None = None,
     skill_store: SkillStore | None = None,
+    store: SessionStore | None = None,
 ) -> FastAPI:
-    """Build the API with configurable browser settings and an optional test model.
+    """Build the API with configurable browser settings and optional test doubles.
 
     `settings` holds the API's own options (CORS origins, dev routes). When it is None they are
     read from the environment and .env, even if `llm` is given, so tests pass `settings`.
     `llm` replaces the real model: when it is given, the model settings (LLM_*) are not read
     at all and no network client is built. `skill_store` replaces the in-memory catalog.
+    `store` replaces the durable session store. Without it, startup opens the SQLite file at
+    SESSION_STORE_PATH (creating its folder) and shutdown closes it; a store passed in here
+    is never closed by the API, because its creator owns it.
     """
 
     api_settings = settings if settings is not None else ApiSettings()
 
     @asynccontextmanager
-    async def lifespan(application: FastAPI) -> AsyncGenerator[None, None]:
-        application.state.skill_store = (
-            skill_store if skill_store is not None else InMemorySkillStore()
-        )
+    async def serve_model(application: FastAPI) -> AsyncGenerator[None, None]:
+        """Put the model on app.state: the injected one, or a real client closed afterwards."""
         if llm is not None:
             application.state.llm = llm
             yield
@@ -119,6 +128,27 @@ def create_app(
             yield
         finally:
             await client.aclose()
+
+    @asynccontextmanager
+    async def lifespan(application: FastAPI) -> AsyncGenerator[None, None]:
+        application.state.skill_store = (
+            skill_store if skill_store is not None else InMemorySkillStore()
+        )
+        opened_store: SQLiteSessionStore | None = None
+        if store is not None:
+            application.state.store = store
+        else:
+            database_path = SessionStoreSettings().path
+            database_path.parent.mkdir(parents=True, exist_ok=True)
+            opened_store = SQLiteSessionStore(database_path)
+            application.state.store = opened_store
+
+        try:
+            async with serve_model(application):
+                yield
+        finally:
+            if opened_store is not None:
+                opened_store.close()
 
     app = FastAPI(
         title="Mockina API",
@@ -162,6 +192,9 @@ def create_app(
     def health() -> dict[str, str]:
         """Report that the API is reachable without calling the model."""
         return {"status": "healthy"}
+
+    app.exception_handler(ApiError)(api_error_handler)
+    app.exception_handler(SessionStoreError)(store_error_handler)
 
     @app.exception_handler(LLMError)
     async def llm_error_handler(_: Request, error: LLMError) -> JSONResponse:
