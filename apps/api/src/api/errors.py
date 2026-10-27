@@ -25,7 +25,26 @@ from session_store import (
     SessionStoreError,
 )
 
+from api.models import ErrorResponse
+
 logger = logging.getLogger(__name__)
+
+ERROR_DESCRIPTIONS: dict[int, str] = {
+    401: "A valid bearer token is required.",
+    404: "The item does not exist, or belongs to somebody else.",
+    409: "The request conflicts with the current state of the item.",
+    422: "The request body or parameters are invalid.",
+    502: "The upstream model request failed.",
+    504: "The upstream model timed out.",
+}
+
+
+def error_responses(*statuses: int) -> dict[int | str, dict[str, Any]]:
+    """OpenAPI ``responses`` entries that document the shared error envelope for these statuses."""
+    return {
+        status_code: {"model": ErrorResponse, "description": ERROR_DESCRIPTIONS[status_code]}
+        for status_code in statuses
+    }
 
 
 class ApiError(Exception):

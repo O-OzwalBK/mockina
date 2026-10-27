@@ -31,6 +31,17 @@ class ApiSettings(BaseSettings):
         examples=[False],
     )
 
+    anon_retention_days: int = Field(
+        default=30,
+        ge=1,
+        description=(
+            "How many days an anonymous user may stay inactive before their data is due for "
+            "deletion. Shown to the browser through GET /v1/capabilities. The scheduled purge "
+            "that enforces it is not built yet, so today the value is only advertised."
+        ),
+        examples=[30],
+    )
+
     @field_validator("cors_origins", mode="before")
     @classmethod
     def _split_cors_origins(cls, value: object) -> object:

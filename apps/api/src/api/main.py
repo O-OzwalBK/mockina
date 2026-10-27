@@ -39,11 +39,13 @@ from skill_graph import InMemorySkillStore, SkillGraphError, SkillStore
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.cors import CORSMiddleware
 
+from api.capabilities import router as capabilities_router
 from api.dependencies import get_llm
 from api.dev_engine import router as dev_engine_router
 from api.dev_evaluator import router as dev_evaluator_router
 from api.dev_skills import router as dev_skills_router
 from api.errors import ApiError, api_error_handler, store_error_handler
+from api.identity import router as identity_router
 from api.models import CompletionRequest, CompletionResponse, ErrorResponse, ModelInfoResponse
 from api.settings import ApiSettings
 
@@ -156,6 +158,7 @@ def create_app(
         version="0.1.0",
         lifespan=lifespan,
     )
+    app.state.api_settings = api_settings
 
     @app.middleware("http")
     async def unexpected_error_middleware(request: Request, call_next):
@@ -179,8 +182,10 @@ def create_app(
     app.add_middleware(
         CORSMiddleware,
         allow_origins=list(api_settings.cors_origins),
-        allow_methods=["GET", "POST"],
-        allow_headers=["Content-Type"],
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
+        allow_headers=["Authorization", "Content-Type"],
+        expose_headers=["Retry-After"],
+        max_age=3600,
         allow_credentials=False,
     )
 
@@ -294,6 +299,9 @@ def create_app(
                 }
             },
         )
+
+    app.include_router(capabilities_router)
+    app.include_router(identity_router)
 
     if api_settings.dev_routes:
         app.include_router(dev_skills_router)

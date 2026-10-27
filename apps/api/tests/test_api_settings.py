@@ -7,7 +7,7 @@ from pydantic import ValidationError
 # Every field ApiSettings should have. The parametrized test at the bottom runs over
 # this list, so if it is ever empty that test silently passes without checking
 # anything. The guard test right after it makes that impossible.
-FIELD_NAMES = ("cors_origins", "dev_routes")
+FIELD_NAMES = ("cors_origins", "dev_routes", "anon_retention_days")
 
 
 @pytest.fixture(autouse=True)
@@ -17,7 +17,7 @@ def clear_api_environment(monkeypatch):
     Without this, a value you have exported in your shell would leak into every test
     and the tests would pass or fail depending on the machine.
     """
-    for name in ("API_CORS_ORIGINS", "API_DEV_ROUTES"):
+    for name in ("API_CORS_ORIGINS", "API_DEV_ROUTES", "API_ANON_RETENTION_DAYS"):
         monkeypatch.delenv(name, raising=False)
 
 
@@ -40,6 +40,7 @@ def test_defaults_are_safe_for_local_development():
     settings = build_settings()
     assert settings.cors_origins == ("http://localhost:5173",)
     assert settings.dev_routes is False
+    assert settings.anon_retention_days == 30
 
 
 def test_settings_are_frozen():
@@ -83,6 +84,21 @@ def test_bad_dev_routes_value_raises(monkeypatch):
     with pytest.raises(ValidationError) as info:
         build_settings()
     assert "dev_routes" in str(info.value)
+
+
+def test_reads_the_retention_days_from_the_environment(monkeypatch):
+    """API_ANON_RETENTION_DAYS sets how many inactive days an anonymous user is kept."""
+    monkeypatch.setenv("API_ANON_RETENTION_DAYS", "7")
+    assert build_settings().anon_retention_days == 7
+
+
+@pytest.mark.parametrize("value", ["0", "-5", "forever"])
+def test_a_retention_below_one_day_or_not_a_number_raises(monkeypatch, value):
+    """Retention must be a whole number of days, at least one; anything else names the field."""
+    monkeypatch.setenv("API_ANON_RETENTION_DAYS", value)
+    with pytest.raises(ValidationError) as info:
+        build_settings()
+    assert "anon_retention_days" in str(info.value)
 
 
 @pytest.mark.parametrize("field_name", FIELD_NAMES)
