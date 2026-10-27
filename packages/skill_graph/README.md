@@ -56,7 +56,9 @@ Each step does one job:
 
 1. **Read the catalog.** `catalog.all_entries(owner_id)` returns the shared seed labels plus the
    labels this owner recorded in earlier extractions. The in-memory catalog starts with 12 shared
-   seeds such as JavaScript, TypeScript, Node.js, Docker, and Git.
+   seeds such as JavaScript, TypeScript, Node.js, Docker, and Git. `catalog.forget(owner_id)`
+   removes an owner's learned labels (they come from that person's job text), which is what
+   deleting a user calls; the shared seeds stay.
 2. **Choose prompt entries.** `select_catalog_entries()` caps the catalog at
    `MAX_CATALOG_ENTRIES_IN_PROMPT` (200), seed entries first, so the model can reuse existing
    labels instead of inventing near-duplicates.

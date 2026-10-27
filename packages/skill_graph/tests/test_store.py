@@ -161,3 +161,62 @@ async def test_in_memory_store_provides_the_catalog_protocol():
     store = InMemorySkillStore()
     assert isinstance(store.catalog, SkillCatalog)
     assert await store.catalog.all_entries("alice")
+
+
+@pytest.mark.anyio
+async def test_forget_removes_the_owners_learned_labels_but_not_the_seeds():
+    """Forgetting an owner drops the labels learned from their job text and keeps the shared seeds."""
+    catalog = InMemorySkillCatalog()
+    await catalog.record(graph_with_leaf("Hooks"), "alice")
+
+    await catalog.forget("alice")
+
+    labels = {entry.node_label for entry in await catalog.all_entries("alice")}
+    assert "Hooks" not in labels
+    assert {entry.node_label for entry in SEED_CATALOG} == labels
+
+
+@pytest.mark.anyio
+async def test_forget_leaves_other_owners_labels_alone():
+    """Forgetting alice does not touch what bob learned."""
+    catalog = InMemorySkillCatalog()
+    await catalog.record(graph_with_leaf("Hooks"), "alice")
+    await catalog.record(graph_with_leaf("Suspense"), "bob")
+
+    await catalog.forget("alice")
+
+    bob = {entry.node_label for entry in await catalog.all_entries("bob")}
+    assert "Suspense" in bob
+
+
+@pytest.mark.anyio
+async def test_forgetting_an_unknown_owner_is_a_no_op():
+    """Forgetting someone the catalog never saw succeeds and changes nothing."""
+    catalog = InMemorySkillCatalog()
+    before = await catalog.all_entries("alice")
+
+    await catalog.forget("nobody")
+
+    assert await catalog.all_entries("alice") == before
+
+
+@pytest.mark.anyio
+async def test_forget_never_removes_the_shared_seed_partition():
+    """A policy that writes into the shared partition cannot make forget delete the seeds."""
+
+    class WriteToSeeds:
+        """A policy whose write partition is the shared one."""
+
+        def visible_partitions(self, owner_id: str) -> tuple[str | None, ...]:
+            return (None,)
+
+        def write_partition(self, owner_id: str) -> str | None:
+            return None
+
+    catalog = InMemorySkillCatalog(sharing=WriteToSeeds())
+
+    await catalog.forget("alice")
+
+    assert {entry.node_label for entry in SEED_CATALOG} == {
+        entry.node_label for entry in await catalog.all_entries("alice")
+    }

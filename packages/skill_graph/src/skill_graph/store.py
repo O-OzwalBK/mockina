@@ -95,6 +95,14 @@ class SkillCatalog(Protocol):
         """Record first sightings from this owner without replacing existing labels."""
         ...
 
+    async def forget(self, owner_id: str) -> None:
+        """Drop the labels this owner's extractions recorded, so deleting a user deletes them.
+
+        The shared seed labels are never removed. Forgetting an owner the catalog never saw
+        does nothing.
+        """
+        ...
+
 
 class InMemorySkillCatalog:
     """An in-memory catalog with shared seeds and owner-scoped learned labels."""
@@ -137,6 +145,17 @@ class InMemorySkillCatalog:
                     node_label=node.label,
                     created_at=timestamp,
                 )
+
+    async def forget(self, owner_id: str) -> None:
+        """Remove the owner's write partition; the shared seed partition is never touched.
+
+        With the default per-user policy that partition holds exactly this owner's labels.
+        A policy that lets several owners write into one partition would also drop what the
+        others recorded there, so such a policy needs its own forgetting rule.
+        """
+        partition = self._sharing.write_partition(owner_id)
+        if partition is not None:
+            self._partitions.pop(partition, None)
 
 
 @dataclass(frozen=True)
