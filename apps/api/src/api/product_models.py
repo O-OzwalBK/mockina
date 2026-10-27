@@ -4,9 +4,10 @@ Shapes shared with the browser and the other packages (Preparation, Turn, ...) l
 the `contracts` package. Shapes here exist only on the HTTP boundary.
 """
 
+from typing import Self
 from uuid import UUID
 
-from contracts import UtcDatetime
+from contracts import ImmutableModel, SessionStatus, UtcDatetime
 from contracts.preparation import (
     MAX_JOB_DESCRIPTION_LENGTH,
     MAX_JOB_TITLE_LENGTH,
@@ -18,7 +19,7 @@ from contracts.transcript import (
     MAX_WORD_LENGTH,
     MAX_WORDS_PER_ANSWER,
 )
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class Identity(BaseModel):
@@ -104,3 +105,104 @@ class Capabilities(BaseModel):
         examples=[False],
     )
     limits: Limits = Field(description="Size limits the server enforces on input.")
+
+
+class PreparationUpdate(ImmutableModel):
+    """The fields a client may change on a preparation. Fields left out stay as they are."""
+
+    job_title: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=MAX_JOB_TITLE_LENGTH,
+        description="New job title. Leave it out to keep the current one; it cannot be null.",
+        examples=["Senior React Developer"],
+    )
+    job_description: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=MAX_JOB_DESCRIPTION_LENGTH,
+        description="New job description. Leave it out to keep the current one; it cannot be null.",
+        examples=["Lead the design of our React component library."],
+    )
+    resume: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=MAX_RESUME_LENGTH,
+        description="New resume text. Send null to remove the resume; leave it out to keep it.",
+        examples=["Built a task tracker with React and TypeScript."],
+    )
+
+    @model_validator(mode="after")
+    def check_the_request_changes_something_valid(self) -> Self:
+        """Reject an empty body, and a null title or description, which cannot be cleared."""
+        sent = self.model_fields_set
+        if not sent:
+            raise ValueError("Send at least one field to change.")
+        for name in ("job_title", "job_description"):
+            if name in sent and getattr(self, name) is None:
+                raise ValueError(f"{name} cannot be null.")
+        return self
+
+
+class PreparationSummary(BaseModel):
+    """A preparation as one row of the home page list, with its session counts."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID = Field(
+        description="Identifier of the preparation.",
+        examples=["9c1d2e3f-4a5b-4c6d-8e7f-0a1b2c3d4e5f"],
+    )
+    job_title: str = Field(description="The job title.", examples=["Junior React Developer"])
+    created_at: UtcDatetime = Field(
+        description="When the preparation was created.", examples=["2026-10-25T09:30:00Z"]
+    )
+    session_count: int = Field(
+        description="How many sessions have been started for this preparation.", examples=[2]
+    )
+    last_session_at: UtcDatetime | None = Field(
+        description="When the newest session started, or null if there is none yet.",
+        examples=["2026-10-26T18:00:00Z"],
+    )
+
+
+class PreparationList(BaseModel):
+    """The caller's preparations, newest first."""
+
+    items: list[PreparationSummary] = Field(description="One summary per preparation.")
+
+
+class SessionSummary(BaseModel):
+    """A session without its turns: its state and how far grading has come."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID = Field(
+        description="Identifier of the session.",
+        examples=["3fa85f64-5717-4562-b3fc-2c963f66afa6"],
+    )
+    preparation_id: UUID = Field(
+        description="The preparation this session practices.",
+        examples=["9c1d2e3f-4a5b-4c6d-8e7f-0a1b2c3d4e5f"],
+    )
+    status: SessionStatus = Field(
+        description="Whether the session is in progress, completed or abandoned.",
+        examples=["completed"],
+    )
+    started_at: UtcDatetime = Field(
+        description="When the session started.", examples=["2026-10-26T18:00:00Z"]
+    )
+    ended_at: UtcDatetime | None = Field(
+        description="When the session ended, or null while it is in progress.",
+        examples=["2026-10-26T18:20:00Z"],
+    )
+    turns_total: int = Field(description="How many questions the session holds.", examples=[5])
+    turns_graded: int = Field(
+        description="How many of those answers have a finished grade.", examples=[3]
+    )
+
+
+class SessionList(BaseModel):
+    """A preparation's sessions, newest first."""
+
+    items: list[SessionSummary] = Field(description="One summary per session.")

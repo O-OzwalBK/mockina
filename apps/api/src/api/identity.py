@@ -3,11 +3,11 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, status
-from session_store import NotFoundError, SessionStore
+from session_store import NotFoundError
 from skill_graph import SkillCatalog
 
 from api.auth import CurrentUser, generate_token, hash_token
-from api.dependencies import get_skill_catalog, get_store
+from api.dependencies import StoreDep, get_skill_catalog
 from api.errors import error_responses
 from api.product_models import Identity
 
@@ -21,7 +21,7 @@ router = APIRouter(prefix="/v1/identity", tags=["identity"])
     response_description="The new identity, including its bearer token, which is shown only once.",
     response_model=Identity,
 )
-async def create_identity(store: Annotated[SessionStore, Depends(get_store)]) -> Identity:
+async def create_identity(store: StoreDep) -> Identity:
     """Create an anonymous user and return the secret token that acts as their password.
 
     No account details are asked for. The token is generated here, returned once, and only
@@ -41,7 +41,7 @@ async def create_identity(store: Annotated[SessionStore, Depends(get_store)]) ->
 )
 async def delete_identity(
     user: CurrentUser,
-    store: Annotated[SessionStore, Depends(get_store)],
+    store: StoreDep,
     catalog: Annotated[SkillCatalog, Depends(get_skill_catalog)],
 ) -> None:
     """Delete the caller and every preparation, session, answer and evaluation they own.

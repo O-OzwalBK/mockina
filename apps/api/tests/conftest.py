@@ -118,3 +118,43 @@ def mint_identity(client: TestClient) -> Callable[[], Credentials]:
         return Credentials(user_id=UUID(body["user_id"]), token=body["token"])
 
     return mint
+
+
+@pytest.fixture
+def user(mint_identity: Callable[[], Credentials]) -> Credentials:
+    """The signed-in user most tests act as."""
+    return mint_identity()
+
+
+@pytest.fixture
+def other_user(mint_identity: Callable[[], Credentials], user: Credentials) -> Credentials:
+    """A second user, for checking that one user can never reach another's data."""
+    return mint_identity()
+
+
+@pytest.fixture
+def product_operations(app: FastAPI) -> list[tuple[str, str, dict]]:
+    """Every product operation as (METHOD, path, OpenAPI operation): all /v1 except /v1/dev.
+
+    The list comes from the OpenAPI document rather than from the router objects, because
+    that document is the public list of routes and does not depend on how FastAPI stores
+    included routers internally. A product route left out of the documentation would not be
+    checked, which the project's documentation rule forbids anyway.
+    """
+    operations = []
+    for path, item in app.openapi()["paths"].items():
+        if not path.startswith("/v1/") or path.startswith("/v1/dev/"):
+            continue
+        for method, operation in item.items():
+            if method in {"get", "post", "put", "patch", "delete"}:
+                operations.append((method.upper(), path, operation))
+    return operations
+
+
+@pytest.fixture
+def public_routes() -> set[tuple[str, str]]:
+    """The product routes anyone may call without a token. Every other /v1 route needs one.
+
+    Job presets will be added here when they are built. This is the one place that lists them.
+    """
+    return {("GET", "/v1/capabilities"), ("POST", "/v1/identity")}

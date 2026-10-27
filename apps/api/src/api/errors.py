@@ -138,3 +138,14 @@ async def store_error_handler(_: Request, error: SessionStoreError) -> JSONRespo
 
     status_code, code, message = mapping
     return error_response(ApiError(status_code, code, message))
+
+
+def require_found[T](value: T | None) -> T:
+    """Return the value, or raise NotFoundError so the shared 404 answer is used.
+
+    The store returns None for a missing item and for one that belongs to another user, so
+    this one check keeps the two cases indistinguishable to the caller.
+    """
+    if value is None:
+        raise NotFoundError("The requested item was not found.")
+    return value

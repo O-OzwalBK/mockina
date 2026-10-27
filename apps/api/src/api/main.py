@@ -47,6 +47,8 @@ from api.dev_skills import router as dev_skills_router
 from api.errors import ApiError, api_error_handler, store_error_handler
 from api.identity import router as identity_router
 from api.models import CompletionRequest, CompletionResponse, ErrorResponse, ModelInfoResponse
+from api.preparations import router as preparations_router
+from api.sessions import router as sessions_router
 from api.settings import ApiSettings
 
 logger = logging.getLogger(__name__)
@@ -302,6 +304,8 @@ def create_app(
 
     app.include_router(capabilities_router)
     app.include_router(identity_router)
+    app.include_router(preparations_router)
+    app.include_router(sessions_router)
 
     if api_settings.dev_routes:
         app.include_router(dev_skills_router)

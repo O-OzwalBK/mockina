@@ -1,8 +1,8 @@
 """Dependencies shared by API routers and replaceable in tests."""
 
-from typing import cast
+from typing import Annotated, cast
 
-from fastapi import Request
+from fastapi import Depends, Request
 from llm_gateway import LLM
 from session_store import SessionStore
 from skill_graph import SkillCatalog, SkillStore
@@ -29,3 +29,7 @@ def get_store(request: Request) -> SessionStore:
 def get_api_settings(request: Request) -> ApiSettings:
     """Return the settings the app was built with, so tests can replace the dependency."""
     return cast(ApiSettings, request.app.state.api_settings)
+
+
+StoreDep = Annotated[SessionStore, Depends(get_store)]
+"""Route parameter type: the app's session store."""

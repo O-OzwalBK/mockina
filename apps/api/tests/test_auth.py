@@ -3,7 +3,7 @@
 import asyncio
 import logging
 import re
-from collections.abc import Callable, Iterator
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 import pytest
@@ -24,10 +24,6 @@ UNAUTHORIZED_BODY = {
         "details": {},
     }
 }
-
-# Routes anyone may call without a token. Everything else under /v1 must reject a call
-# that has none. Job presets will join this set when they are built.
-PUBLIC_ROUTES = {("GET", "/v1/capabilities"), ("POST", "/v1/identity")}
 
 
 @pytest.fixture
@@ -151,34 +147,22 @@ def test_the_bearer_scheme_is_documented_in_openapi(client: TestClient):
     assert "security" not in schema["paths"]["/v1/identity"]["post"]
 
 
-def product_routes(app: FastAPI) -> Iterator[tuple[str, str]]:
-    """Every (method, path) of the product API: all /v1 routes except the developer ones.
-
-    The list comes from the OpenAPI document rather than from the router objects, because
-    that document is the public list of routes and does not depend on how FastAPI stores
-    included routers internally. It also means a product route left out of the documentation
-    is not checked, which the project's documentation rule forbids anyway.
-    """
-    for path, operations in app.openapi()["paths"].items():
-        if not path.startswith("/v1/") or path.startswith("/v1/dev/"):
-            continue
-        for method in operations:
-            if method in {"get", "post", "put", "patch", "delete"}:
-                yield method.upper(), path
-
-
-def test_the_route_matrix_sees_the_public_and_protected_routes(app: FastAPI):
+def test_the_route_matrix_sees_the_public_and_protected_routes(product_operations, public_routes):
     """Guard: the matrix below must find routes, or it would pass while checking nothing."""
-    found = set(product_routes(app))
-    assert PUBLIC_ROUTES <= found
+    found = {(method, path) for method, path, _ in product_operations}
+    assert public_routes <= found
     assert ("DELETE", "/v1/identity") in found
 
 
 def test_every_product_route_except_the_public_ones_requires_a_token(
-    app: FastAPI, client: TestClient
+    product_operations, public_routes, client: TestClient
 ):
     """Calling any other /v1 route with no token gives the 401 error, whatever its method."""
-    protected = [route for route in product_routes(app) if route not in PUBLIC_ROUTES]
+    protected = [
+        (method, path)
+        for method, path, _ in product_operations
+        if (method, path) not in public_routes
+    ]
     assert protected
 
     for method, path in protected:
