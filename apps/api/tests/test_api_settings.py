@@ -92,9 +92,15 @@ def test_reads_the_retention_days_from_the_environment(monkeypatch):
     assert build_settings().anon_retention_days == 7
 
 
-@pytest.mark.parametrize("value", ["0", "-5", "forever"])
-def test_a_retention_below_one_day_or_not_a_number_raises(monkeypatch, value):
-    """Retention must be a whole number of days, at least one; anything else names the field."""
+def test_zero_retention_days_means_never_purged(monkeypatch):
+    """API_ANON_RETENTION_DAYS=0 is valid: data is kept until the user deletes it."""
+    monkeypatch.setenv("API_ANON_RETENTION_DAYS", "0")
+    assert build_settings().anon_retention_days == 0
+
+
+@pytest.mark.parametrize("value", ["-5", "forever"])
+def test_a_negative_or_non_numeric_retention_raises(monkeypatch, value):
+    """Retention must be a whole number of days, zero or more; anything else names the field."""
     monkeypatch.setenv("API_ANON_RETENTION_DAYS", value)
     with pytest.raises(ValidationError) as info:
         build_settings()

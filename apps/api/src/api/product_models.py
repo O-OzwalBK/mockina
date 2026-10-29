@@ -93,7 +93,10 @@ class Capabilities(BaseModel):
     """What this server offers, readable without an identity."""
 
     anonymous_retention_days: int = Field(
-        description="Days an anonymous user may stay inactive before their data is due for deletion.",
+        description=(
+            "Days an anonymous user may stay inactive before their data is due for deletion. "
+            "0 means the data is kept until the user deletes it."
+        ),
         examples=[30],
     )
     hosted_stt: bool = Field(

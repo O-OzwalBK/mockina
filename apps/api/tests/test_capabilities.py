@@ -89,3 +89,14 @@ def test_openapi_describes_the_capabilities_response(client: TestClient):
     assert operation["responses"]["200"]["description"]
     reference = operation["responses"]["200"]["content"]["application/json"]["schema"]["$ref"]
     assert reference.endswith("/Capabilities")
+
+
+def test_zero_retention_is_advertised_as_zero(store: InMemorySessionStore):
+    """A server that never purges reports 0, as the agreed Capabilities shape allows."""
+    settings = ApiSettings(_env_file=None, anon_retention_days=0)  # pyright: ignore[reportCallIssue]
+    app = create_app(settings=settings, llm=FakeLLM(), store=store)
+
+    with TestClient(app) as client:
+        body = client.get("/v1/capabilities").json()
+
+    assert body["anonymous_retention_days"] == 0
