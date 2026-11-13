@@ -33,8 +33,10 @@ ERROR_DESCRIPTIONS: dict[int, str] = {
     401: "A valid bearer token is required.",
     404: "The item does not exist, or belongs to somebody else.",
     409: "The request conflicts with the current state of the item.",
+    413: "The prompt is larger than the model can read.",
     422: "The request body or parameters are invalid.",
     502: "The upstream model request failed.",
+    503: "The upstream model is rate limited; wait for Retry-After before trying again.",
     504: "The upstream model timed out.",
 }
 

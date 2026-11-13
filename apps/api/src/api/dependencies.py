@@ -7,6 +7,8 @@ from llm_gateway import LLM
 from session_store import SessionStore
 from skill_graph import SkillCatalog, SkillStore
 
+from api.interview_services import Interviewer
+from api.locks import KeyedLocks
 from api.settings import ApiSettings
 
 
@@ -31,5 +33,24 @@ def get_api_settings(request: Request) -> ApiSettings:
     return cast(ApiSettings, request.app.state.api_settings)
 
 
+def get_interviewer(request: Request) -> Interviewer:
+    """Return the app-owned question source so tests can replace it."""
+    return cast(Interviewer, request.app.state.interviewer)
+
+
+def get_session_locks(request: Request) -> KeyedLocks:
+    """Return the per-session locks that keep two requests from asking the model twice."""
+    return cast(KeyedLocks, request.app.state.session_locks)
+
+
 StoreDep = Annotated[SessionStore, Depends(get_store)]
 """Route parameter type: the app's session store."""
+
+SettingsDep = Annotated[ApiSettings, Depends(get_api_settings)]
+"""Route parameter type: the settings the app was built with."""
+
+InterviewerDep = Annotated[Interviewer, Depends(get_interviewer)]
+"""Route parameter type: the app's question source."""
+
+SessionLocksDep = Annotated[KeyedLocks, Depends(get_session_locks)]
+"""Route parameter type: the app's per-session locks."""

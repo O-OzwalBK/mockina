@@ -47,6 +47,13 @@ Content-Type: application/json
 	]
 }
 
+### Query the limits
+GET {{baseUrl}}/v1/capabilities
+
+### Request a new identity
+POST  {{baseUrl}}/v1/identity
+
+
 ### Extract a job's technical skill graph (requires API_DEV_ROUTES=true)
 POST {{baseUrl}}/v1/dev/extract-skills
 Content-Type: application/json

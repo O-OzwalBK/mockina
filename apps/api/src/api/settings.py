@@ -43,6 +43,18 @@ class ApiSettings(BaseSettings):
         examples=[30],
     )
 
+    turn_timeout_seconds: float = Field(
+        default=90,
+        gt=0,
+        le=600,
+        description=(
+            "Longest, in seconds, that asking for the next question may take, counting skill "
+            "extraction and the model call. Past it the request answers 504 `llm_timeout` and "
+            "can be retried. The model gateway has its own, longer limits per call."
+        ),
+        examples=[90],
+    )
+    
     @field_validator("cors_origins", mode="before")
     @classmethod
     def _split_cors_origins(cls, value: object) -> object:

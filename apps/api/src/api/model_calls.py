@@ -1,4 +1,4 @@
-"""Log safe metadata for model calls made by developer routes."""
+"""Wrappers around the model that log safe metadata for model calls made by developer routes or count its usage."""
 
 import logging
 from collections.abc import Sequence
@@ -50,4 +50,43 @@ class LoggedLLM:
             completion.prompt_tokens,
             completion.completion_tokens,
         )
+        return completion
+
+
+class MeteredLLM:
+    """Forward the model calls of one job and add up their usage, keeping no content.
+
+    A job such as "write the next question" may call the model several times (extract the
+    skills, write the question, repair it). The job creates one MeteredLLM, passes it to the
+    engine in place of the real model, and afterwards logs one line with the totals.
+    """
+
+    def __init__(self, llm: LLM) -> None:
+        """Wrap the model for one job."""
+        self._llm = llm
+        self.calls = 0
+        """How many times the model was asked, including attempts that failed."""
+        self.prompt_tokens: int | None = None
+        """Prompt tokens the provider reported, added up; None if it reported none."""
+        self.completion_tokens: int | None = None
+        """Reply tokens the provider reported, added up; None if it reported none."""
+
+    async def complete(
+        self,
+        messages: Sequence[ChatMessage],
+        *,
+        temperature: float = 0.2,
+        max_output_tokens: int | None = None,
+    ) -> Completion:
+        """Forward one call, count it, and add up the tokens it reports."""
+        self.calls += 1
+        completion = await self._llm.complete(
+            messages,
+            temperature=temperature,
+            max_output_tokens=max_output_tokens,
+        )
+        if completion.prompt_tokens is not None:
+            self.prompt_tokens = (self.prompt_tokens or 0) + completion.prompt_tokens
+        if completion.completion_tokens is not None:
+            self.completion_tokens = (self.completion_tokens or 0) + completion.completion_tokens
         return completion

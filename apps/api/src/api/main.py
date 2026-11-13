@@ -9,6 +9,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 from engine import UnusableQuestionError
+from engine import EngineSettings, UnusableQuestionError
 from evaluator import EvaluationError
 from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -46,10 +47,13 @@ from api.dev_evaluator import router as dev_evaluator_router
 from api.dev_skills import router as dev_skills_router
 from api.errors import ApiError, api_error_handler, store_error_handler
 from api.identity import router as identity_router
+from api.interview_services import Interviewer, ModelInterviewer, resolve_interview_config
+from api.locks import KeyedLocks
 from api.models import CompletionRequest, CompletionResponse, ErrorResponse, ModelInfoResponse
 from api.preparations import router as preparations_router
 from api.sessions import router as sessions_router
 from api.settings import ApiSettings
+from api.turns import router as turns_router
 
 logger = logging.getLogger(__name__)
 LLM_ERROR_MAP: dict[type[LLMError], tuple[int, str]] = {
@@ -95,6 +99,7 @@ def create_app(
     llm: LLM | None = None,
     skill_store: SkillStore | None = None,
     store: SessionStore | None = None,
+    interviewer: Interviewer | None = None,
 ) -> FastAPI:
     """Build the API with configurable browser settings and optional test doubles.
 
@@ -105,6 +110,8 @@ def create_app(
     `store` replaces the durable session store. Without it, startup opens the SQLite file at
     SESSION_STORE_PATH (creating its folder) and shutdown closes it; a store passed in here
     is never closed by the API, because its creator owns it.
+    `interviewer` replaces the question source; without it the real one is built from the model, the skill catalog and
+    the store, so tests of the real flow pass only `llm`.
     """
 
     api_settings = settings if settings is not None else ApiSettings()
@@ -147,8 +154,20 @@ def create_app(
             opened_store = SQLiteSessionStore(database_path)
             application.state.store = opened_store
 
+        application.state.session_locks = KeyedLocks()
+
         try:
             async with serve_model(application):
+                application.state.interviewer = (
+                    interviewer
+                    if interviewer is not None
+                    else ModelInterviewer(
+                        application.state.llm,
+                        application.state.skill_store.catalog,
+                        application.state.store,
+                        resolve_interview_config(EngineSettings()),
+                    )
+                )
                 yield
         finally:
             if opened_store is not None:
@@ -306,6 +325,7 @@ def create_app(
     app.include_router(identity_router)
     app.include_router(preparations_router)
     app.include_router(sessions_router)
+    app.include_router(turns_router)
 
     if api_settings.dev_routes:
         app.include_router(dev_skills_router)
