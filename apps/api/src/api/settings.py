@@ -25,8 +25,8 @@ class ApiSettings(BaseSettings):
     dev_routes: bool = Field(
         default=False,
         description=(
-            "Whether developer-only model routes are registered. Keep disabled in deployed "
-            "copies of the API."
+            "Whether developer-only model routes are registered. "
+            "Keep disabled in deployed copies of the API."
         ),
         examples=[False],
     )
@@ -54,7 +54,7 @@ class ApiSettings(BaseSettings):
         ),
         examples=[90],
     )
-    
+
     @field_validator("cors_origins", mode="before")
     @classmethod
     def _split_cors_origins(cls, value: object) -> object:

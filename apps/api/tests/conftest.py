@@ -1,6 +1,6 @@
 """Test setup shared by every API test file."""
 
-from collections.abc import Callable, Iterator
+from collections.abc import Awaitable, Callable, Iterator, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -9,6 +9,8 @@ from uuid import UUID
 import pytest
 from api.main import create_app
 from api.settings import ApiSettings
+from contracts import Preparation, Question, Turn
+from engine import EngineOutcome
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from llm_gateway.testing import FakeLLM
@@ -59,6 +61,71 @@ class Credentials:
         return {"Authorization": f"Bearer {self.token}"}
 
 
+@dataclass(frozen=True)
+class InterviewerCall:
+    """What the routes handed to the question source on one call, kept for the test to check."""
+
+    user_id: UUID
+    preparation: Preparation
+    turns: tuple[Turn, ...]
+    earlier_questions: tuple[Question, ...]
+
+
+class FakeInterviewer:
+    """A question source that plays a script instead of asking a model.
+
+    Give it the outcomes you want, in order. An outcome is a `Question`, an `InterviewFinished`,
+    an exception (raised), or an async function with no arguments that returns one of the
+    others, which lets a test make the call slow or do something while it is "thinking". Every
+    call is recorded in `calls`. A call beyond the script raises AssertionError, so a route that
+    asks more often than the test expected cannot go unnoticed.
+    """
+
+    def __init__(
+        self,
+        *script: EngineOutcome | BaseException | Callable[[], Awaitable[EngineOutcome]],
+    ) -> None:
+        """Remember the outcomes to play back."""
+        self._script = list(script)
+        self.calls: list[InterviewerCall] = []
+
+    def add(
+        self,
+        *script: EngineOutcome | BaseException | Callable[[], Awaitable[EngineOutcome]],
+    ) -> None:
+        """Queue more outcomes after the ones already waiting."""
+        self._script.extend(script)
+
+    async def next_question(
+        self,
+        *,
+        user_id: UUID,
+        preparation: Preparation,
+        turns: Sequence[Turn],
+        earlier_questions: Sequence[Question],
+    ) -> EngineOutcome:
+        """Record the call, then play the next scripted outcome."""
+        self.calls.append(
+            InterviewerCall(user_id, preparation, tuple(turns), tuple(earlier_questions))
+        )
+        if not self._script:
+            raise AssertionError(
+                "The route asked the interviewer more often than the test scripted."
+            )
+        item = self._script.pop(0)
+        if isinstance(item, BaseException):
+            raise item
+        if callable(item):
+            return await item()
+        return item
+
+
+@pytest.fixture
+def interviewer() -> FakeInterviewer:
+    """A scripted question source, empty at first. Tests queue outcomes with `interviewer.add(...)`."""
+    return FakeInterviewer()
+
+
 @pytest.fixture
 def clock() -> MutableClock:
     """A hand-moved clock shared by the store."""
@@ -86,7 +153,7 @@ def skill_store() -> InMemorySkillStore:
 @pytest.fixture
 def api_settings() -> ApiSettings:
     """API settings with no .env file read and developer routes off."""
-    return ApiSettings(_env_file=None)  # pyright: ignore[reportCallIssue]
+    return ApiSettings(_env_file=None, dev_routes=False)  # pyright: ignore[reportCallIssue]
 
 
 @pytest.fixture
@@ -95,9 +162,16 @@ def app(
     llm: FakeLLM,
     store: InMemorySessionStore,
     skill_store: InMemorySkillStore,
+    interviewer: FakeInterviewer,
 ) -> FastAPI:
-    """The API wired to test doubles for the model, the session store and the skill catalog."""
-    return create_app(settings=api_settings, llm=llm, skill_store=skill_store, store=store)
+    """The API wired to test doubles for the model, the stores and the question source."""
+    return create_app(
+        settings=api_settings,
+        llm=llm,
+        skill_store=skill_store,
+        store=store,
+        interviewer=interviewer,
+    )
 
 
 @pytest.fixture

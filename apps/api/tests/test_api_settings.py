@@ -35,12 +35,52 @@ def test_field_list_is_not_empty():
     assert FIELD_NAMES  # pyright: ignore[reportAssertAlwaysTrue]
 
 
-def test_defaults_are_safe_for_local_development():
-    """With nothing set, CORS allows the Vite dev server and the dev routes are off."""
+def test_with_nothing_configured_the_built_in_defaults_are_safe():
+    """Built-in defaults only (no env, no .env): dev routes off, CORS for the Vite dev server."""
     settings = build_settings()
     assert settings.cors_origins == ("http://localhost:5173",)
     assert settings.dev_routes is False
     assert settings.anon_retention_days == 30
+
+
+def test_values_in_a_dotenv_file_replace_the_defaults(tmp_path):
+    """A `.env` file is a real source of settings: its values replace the built-in defaults."""
+    dotenv = tmp_path / ".env"
+    dotenv.write_text("API_DEV_ROUTES=true\nAPI_ANON_RETENTION_DAYS=7\n")
+
+    settings = ApiSettings(_env_file=dotenv)  # pyright: ignore[reportCallIssue]
+
+    assert settings.dev_routes is True
+    assert settings.anon_retention_days == 7
+
+
+def test_a_real_environment_variable_beats_the_dotenv_file(tmp_path, monkeypatch):
+    """When both set the same setting, the environment variable wins, as it does in a deployment."""
+    dotenv = tmp_path / ".env"
+    dotenv.write_text("API_DEV_ROUTES=true\n")
+    monkeypatch.setenv("API_DEV_ROUTES", "false")
+
+    settings = ApiSettings(_env_file=dotenv)  # pyright: ignore[reportCallIssue]
+
+    assert settings.dev_routes is False
+
+
+def test_a_dotenv_file_in_the_working_folder_is_found_without_being_named(tmp_path, monkeypatch):
+    """Run from the repository root, the settings find `./.env` on their own."""
+    (tmp_path / ".env").write_text("API_DEV_ROUTES=true\n")
+    monkeypatch.chdir(tmp_path)
+
+    assert ApiSettings().dev_routes is True  # pyright: ignore[reportCallIssue]
+
+
+def test_a_dotenv_file_two_folders_up_is_found_too(tmp_path, monkeypatch):
+    """Run from `apps/api`, the settings find the repository root's `.env` two folders up."""
+    (tmp_path / ".env").write_text("API_DEV_ROUTES=true\n")
+    working_folder = tmp_path / "apps" / "api"
+    working_folder.mkdir(parents=True)
+    monkeypatch.chdir(working_folder)
+
+    assert ApiSettings().dev_routes is True  # pyright: ignore[reportCallIssue]
 
 
 def test_settings_are_frozen():

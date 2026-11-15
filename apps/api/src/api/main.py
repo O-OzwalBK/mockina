@@ -8,7 +8,6 @@ from time import perf_counter
 from typing import Any
 from urllib.parse import urlparse
 
-from engine import UnusableQuestionError
 from engine import EngineSettings, UnusableQuestionError
 from evaluator import EvaluationError
 from fastapi import Depends, FastAPI, Request

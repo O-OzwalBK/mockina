@@ -9,10 +9,9 @@ The session store protects the data itself across processes; these locks only av
 """
 
 import asyncio
-from collections.abc import Hashable
+from collections.abc import AsyncGenerator, Hashable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
-from typing import AsyncGenerator
 
 
 @dataclass

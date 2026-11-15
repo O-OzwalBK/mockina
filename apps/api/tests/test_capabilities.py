@@ -1,5 +1,7 @@
 """Tests for GET /v1/capabilities: what this server offers and the limits it enforces."""
 
+from pathlib import Path
+
 import pytest
 from api.main import create_app
 from api.product_models import Limits
@@ -61,8 +63,10 @@ def test_every_limit_field_has_a_source_constant():
 
 def test_retention_and_dev_routes_come_from_the_settings(store: InMemorySessionStore):
     """The advertised retention and developer-routes flag follow the API's own settings."""
-    settings = ApiSettings(  # pyright: ignore[reportCallIssue]
-        _env_file=None, anon_retention_days=7, dev_routes=True
+    settings = ApiSettings(
+        _env_file=None,  # pyright: ignore[reportCallIssue]
+        anon_retention_days=7,
+        dev_routes=True,  # pyright: ignore[reportCallIssue]
     )
     app = create_app(settings=settings, llm=FakeLLM(), store=store)
 
@@ -73,12 +77,26 @@ def test_retention_and_dev_routes_come_from_the_settings(store: InMemorySessionS
     assert body["dev_routes"] is True
 
 
-def test_capabilities_default_to_thirty_days_and_no_dev_routes(client: TestClient):
-    """With default settings the server advertises 30 days and no developer routes."""
-    body = client.get("/v1/capabilities").json()
+def test_a_server_without_any_configuration_advertises_the_built_in_defaults(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+):
+    """An app that builds its own API settings reports the built-in defaults as capabilities.
 
-    assert body["anonymous_retention_days"] == 30
-    assert body["dev_routes"] is False
+    The other capabilities tests hand the app ready-made settings. This one passes none,
+    so the app reads them itself, like the real server does at startup.
+    The environment and `.env` are emptied first, because this test is about the defaults, not about one machine's setup.
+    The fake model and store only keep startup from needing real ones; they play no part.
+    """
+    monkeypatch.delenv("API_ANON_RETENTION_DAYS", raising=False)
+    monkeypatch.delenv("API_DEV_ROUTES", raising=True)
+    monkeypatch.chdir(tmp_path)
+    defaults = ApiSettings(_env_file=None)  # pyright: ignore[reportCallIssue]
+
+    with TestClient(create_app(llm=FakeLLM(), store=InMemorySessionStore())) as client:
+        body = client.get("/v1/capabilities").json()
+
+    assert body["anonymous_retention_days"] == defaults.anon_retention_days
+    assert body["dev_routes"] == defaults.dev_routes
 
 
 def test_openapi_describes_the_capabilities_response(client: TestClient):
