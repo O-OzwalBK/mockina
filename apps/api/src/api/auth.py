@@ -1,12 +1,13 @@
 """Anonymous bearer-token authentication.
 
-A person gets an identity by calling ``POST /v1/identity``. The response holds a random
-token that is shown once. The store keeps only the token's SHA-256 hash, so a copy of the
-database cannot be used to act as anybody. Each protected route then reads the token from
-the ``Authorization: Bearer`` header, hashes it and looks the user up by that hash.
+A person gets an identity by calling ``POST /v1/identity``.
+The response holds a random token that is shown once.
+The store keeps only the token's SHA-256 hash, so a copy of the
+database cannot be used to act as anybody.
+Each protected route then reads the token fromthe ``Authorization: Bearer`` header, hashes it and looks the user up by that hash.
 
-Tokens carry 256 bits of randomness, so a plain fast hash is enough. A slow password hash
-would only make every request slower.
+Tokens carry 256 bits of randomness, so a plain fast hash is enough.
+A slow password hash would only make every request slower.
 """
 
 import hashlib
