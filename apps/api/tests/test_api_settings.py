@@ -7,7 +7,7 @@ from pydantic import ValidationError
 # Every field ApiSettings should have. The parametrized test at the bottom runs over
 # this list, so if it is ever empty that test silently passes without checking
 # anything. The guard test right after it makes that impossible.
-FIELD_NAMES = ("cors_origins", "dev_routes", "anon_retention_days")
+FIELD_NAMES = ("cors_origins", "dev_routes", "anon_retention_days", "turn_timeout_seconds")
 
 
 @pytest.fixture(autouse=True)
@@ -17,7 +17,12 @@ def clear_api_environment(monkeypatch):
     Without this, a value you have exported in your shell would leak into every test
     and the tests would pass or fail depending on the machine.
     """
-    for name in ("API_CORS_ORIGINS", "API_DEV_ROUTES", "API_ANON_RETENTION_DAYS"):
+    for name in (
+        "API_CORS_ORIGINS",
+        "API_DEV_ROUTES",
+        "API_ANON_RETENTION_DAYS",
+        "API_TURN_TIMEOUT_SECONDS",
+    ):
         monkeypatch.delenv(name, raising=False)
 
 
@@ -41,6 +46,7 @@ def test_with_nothing_configured_the_built_in_defaults_are_safe():
     assert settings.cors_origins == ("http://localhost:5173",)
     assert settings.dev_routes is False
     assert settings.anon_retention_days == 30
+    assert settings.turn_timeout_seconds == 90
 
 
 def test_values_in_a_dotenv_file_replace_the_defaults(tmp_path):
@@ -145,6 +151,28 @@ def test_a_negative_or_non_numeric_retention_raises(monkeypatch, value):
     with pytest.raises(ValidationError) as info:
         build_settings()
     assert "anon_retention_days" in str(info.value)
+
+
+def test_reads_the_question_deadline_from_the_environment(monkeypatch):
+    """API_TURN_TIMEOUT_SECONDS sets how long asking for a question may take, fractions allowed."""
+    monkeypatch.setenv("API_TURN_TIMEOUT_SECONDS", "45.5")
+    assert build_settings().turn_timeout_seconds == 45.5
+
+
+@pytest.mark.parametrize("value", ["0.05", "600"])
+def test_the_smallest_and_largest_sensible_deadlines_are_accepted(monkeypatch, value):
+    """A deadline just above 0 (handy in tests) and exactly 600 seconds are both allowed."""
+    monkeypatch.setenv("API_TURN_TIMEOUT_SECONDS", value)
+    assert build_settings().turn_timeout_seconds == float(value)
+
+
+@pytest.mark.parametrize("value", ["0", "-1", "601", "soon"])
+def test_a_deadline_that_is_not_between_zero_and_ten_minutes_raises(monkeypatch, value):
+    """The deadline must be above 0 and at most 600 seconds; anything else names the field."""
+    monkeypatch.setenv("API_TURN_TIMEOUT_SECONDS", value)
+    with pytest.raises(ValidationError) as info:
+        build_settings()
+    assert "turn_timeout_seconds" in str(info.value)
 
 
 @pytest.mark.parametrize("field_name", FIELD_NAMES)
