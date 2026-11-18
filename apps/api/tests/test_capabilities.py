@@ -88,7 +88,7 @@ def test_a_server_without_any_configuration_advertises_the_built_in_defaults(
     The fake model and store only keep startup from needing real ones; they play no part.
     """
     monkeypatch.delenv("API_ANON_RETENTION_DAYS", raising=False)
-    monkeypatch.delenv("API_DEV_ROUTES", raising=True)
+    monkeypatch.delenv("API_DEV_ROUTES", raising=False)
     monkeypatch.chdir(tmp_path)
     defaults = ApiSettings(_env_file=None)  # pyright: ignore[reportCallIssue]
 

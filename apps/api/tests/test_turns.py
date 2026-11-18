@@ -27,7 +27,9 @@ def question(text: str = "How do React hooks work?", skill_id: str = "react-hook
     return Question(text=text, skill_id=skill_id, difficulty=2)
 
 
-def start_session(client: TestClient, credentials: Credentials, preparation_id: str | None = None):
+def start_session(
+    client: TestClient, credentials: "Credentials", preparation_id: str | None = None
+):
     """Create a preparation (unless one is given) and a session on it; return both ids."""
     if preparation_id is None:
         created = client.post("/v1/preparations", json=JOB, headers=credentials.headers)
