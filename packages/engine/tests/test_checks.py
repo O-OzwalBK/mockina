@@ -2,7 +2,6 @@ import pytest
 from contracts import Question
 from engine import UnusableQuestionError
 from engine.checks import (
-    ENGINE_MAX_SPOKEN_QUESTION_LENGTH,
     FAILURE_EMPTY,
     FAILURE_MARKDOWN,
     FAILURE_MULTIPLE_QUESTIONS,
@@ -13,9 +12,10 @@ from engine.checks import (
     QUESTION_TEMPERATURE,
     RETRY_TEMPERATURE,
     check_question,
-    sanitize_question,
     write_question,
 )
+from engine.prompt import ENGINE_MAX_SPOKEN_QUESTION_LENGTH
+from engine.text import sanitize_question
 from llm_gateway import ChatMessage, Completion, LLMResponseError
 from llm_gateway.testing import FakeLLM
 

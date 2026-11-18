@@ -1,3 +1,5 @@
+import random
+
 import pytest
 from contracts import Question, SkillGraph, SkillNode, Turn, skill_id
 from engine.errors import EmptySkillGraphError
@@ -46,15 +48,15 @@ def _id(label: str) -> str:
     return skill_id(ROOT_LABEL, label)
 
 
-class LastChoice:
+class LastChoice(random.Random):
     """A deterministic random source that always picks the last candidate."""
 
-    def choice(self, sequence):
-        return sequence[-1]
+    def choice(self, seq):
+        return seq[-1]
 
 
 def test_least_asked_skill_wins_even_when_its_importance_is_lower():
-    """A skill asked less often is chosen over a more important but more asked one."""
+    """A skill asked less often is chosen over a more important but frequently asked ones."""
     graph = _graph(importances=(5, 3, 1))
     earlier = [_asked(_id("Hooks")), _asked(_id("Hooks"))]
     chosen = choose_skill(graph, [], earlier, random_source=LastChoice())

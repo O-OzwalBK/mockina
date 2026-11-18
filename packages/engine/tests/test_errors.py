@@ -38,4 +38,4 @@ def test_unusable_question_error_adds_no_text_to_its_message():
 def test_unusable_question_error_requires_both_details():
     """Failures and attempts are required keyword arguments, so callers cannot leave them out."""
     with pytest.raises(TypeError):
-        UnusableQuestionError("The question failed a check.")
+        UnusableQuestionError("The question failed a check.")  # pyright: ignore[reportCallIssue]
